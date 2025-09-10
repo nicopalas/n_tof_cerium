@@ -150,7 +150,7 @@ void neutron_energy(int run_number) {
     inputTree->SetBranchAddress("amp7", amp7);
     inputTree->SetBranchAddress("amp8", amp8);
     inputTree->SetBranchAddress("amp9", amp9);
-    inputTree->SetBranchAddress("detn", &detn_all);
+    inputTree->SetBranchAddress("detn", detn_all);
     inputTree->SetBranchAddress("mult0", &mult0);
     inputTree->SetBranchAddress("mult1", &mult1);
     inputTree->SetBranchAddress("mult2", &mult2);
@@ -192,7 +192,7 @@ void neutron_energy(int run_number) {
     outtree->Branch("mult7", &mult7, "mult7/I");
     outtree->Branch("mult8", &mult8, "mult8/I");
     outtree->Branch("mult9", &mult9, "mult9/I");
-    outtree->Branch("detn", &detn_all, "detn[10]/I");
+    outtree->Branch("detn", detn_all, "detn[10]/I");
     outtree->Branch("amp0", amp0, "amp0[mult0]/F");
     outtree->Branch("amp1", amp1, "amp1[mult1]/F");
     outtree->Branch("amp2", amp2, "amp2[mult2]/F");
@@ -234,9 +234,10 @@ void neutron_energy(int run_number) {
         for (Long64_t j = 0; j < npkupEntries; j++) {
             pkupTree->GetEntry(j); //again adjusting with the pickup data
             if (RunNumber == pkup_RunNumber && PulseIntensity == pkup_PulseIntensity && BunchNumber == pkup_BunchNumber && PSpulse == pkup_PSpulse && eventTime == pkup_time && psTime == pkup_psTime) {
-                // calibrate the tof with the offset and the pickup times and store them.
+                // calibrate the tof with the offset and the pickup times and store them. 
+                // 50 mm distance between PPACS (we use 0.0704 because it is the distance between the center of the detectors having into account the inclination))
                for (int j = 0; j < mult0; j++) { tof0[j] = tof0[j] - tof - offsets_gamma_flash[0]; gamma_flash0[j] = gamma_flash_means[0]; }
-                for (int j = 0; j < mult1; j++) { tof1[j] = tof1[j] - tof - offsets_gamma_flash[1]+0.0704/299792458.0*1E9; gamma_flash1[j] = gamma_flash_means[0]+0.03/299792458.0*10E9; } //30 mm distance between PPACS
+                for (int j = 0; j < mult1; j++) { tof1[j] = tof1[j] - tof - offsets_gamma_flash[1]+0.0704/299792458.0*1E9; gamma_flash1[j] = gamma_flash_means[0]+0.03/299792458.0*10E9; }
                 for (int j = 0; j < mult2; j++) { tof2[j] = tof2[j] - tof - offsets_gamma_flash[2]+2*0.0704/299792458.0*1E9; gamma_flash2[j] = gamma_flash_means[0]+2*(0.03/299792458.0*1E9); }
                 for (int j = 0; j < mult3; j++) { tof3[j] = tof3[j] - tof - offsets_gamma_flash[3]+3*0.0704/299792458.0*1E9; gamma_flash3[j] = gamma_flash_means[0]+3*(0.03/299792458.0*1E9); }
                 for (int j = 0; j < mult4; j++) { tof4[j] = tof4[j] - tof - offsets_gamma_flash[4]+4*0.0704/299792458.0*1E9; gamma_flash4[j] = gamma_flash_means[0]+4*(0.03/299792458.0*1E9); }
