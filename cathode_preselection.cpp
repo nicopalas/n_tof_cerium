@@ -14,7 +14,6 @@ Double_t psTime;
 Double_t tof;
 Float_t PulseIntensity;
 Int_t mult=1;
-Int_t time_for_coincidence = 200; //time difference between signals CHECK IF TIME IS IN ns!!!!
 Int_t max_mul = 5; //max number of signals in coincidence in a single detector
 Int_t mult0 = 0, mult1 = 0, mult2 = 0, mult3 = 0, mult4 = 0, mult5 = 0, mult6 = 0, mult7 = 0, mult8 = 0, mult9 = 0;
 Double_t tof0[5],tof1[5],tof2[5],tof3[5],tof4[5],tof5[5],tof6[5],tof7[5],tof8[5],tof9[5]; //must be hardcoded if arrays are defined at file scope
@@ -270,7 +269,7 @@ Bool_t addAmp(Int_t the_detn, Float_t the_amp) {
     }
     return true;
 }
-void cathode_preselection(Int_t run_number) {
+void cathode_preselection(Int_t run_number, Int_t time_for_coincidence, Float_t amp_threshold) {
     std::string filename = "/nucl_lustre/n_tof_INTC_P_665/DATA/run" + std::to_string(run_number) + ".root";
     TFile *file = TFile::Open(filename.c_str());// data from the pickup and the cathode
     TTree *cathodeTree = (TTree*)file->Get("PPAC");
@@ -343,7 +342,7 @@ void cathode_preselection(Int_t run_number) {
     outtree->Branch("time", &eventTime, "time/I");
     outtree->Branch("psTime", &psTime, "psTime/D");
     outtree->Branch("PulseIntensity", &PulseIntensity, "PulseIntensity/F");
-    outtree->Branch("detn_cathode", &detn_cathode, "detn_cathode[40]/I");
+    outtree->Branch("detn_cathode", detn_cathode, "detn_cathode[40]/I");
     outtree->Branch("first_mult01", &first_mult01, "first_mult01/I");
     outtree->Branch("first_mult02", &first_mult02, "first_mult02/I");
     outtree->Branch("first_mult03", &first_mult03, "first_mult03/I");
@@ -494,10 +493,10 @@ void cathode_preselection(Int_t run_number) {
     }
 
     for (size_t i = 0; i < signals.size(); ++i) {
-        if (used[i] == false && std::get<8>(signals[i]) > 150) { 
+        if (used[i] == false && std::get<8>(signals[i]) > amp_threshold) { 
             std::vector<std::tuple<Int_t, Int_t, Double_t, Int_t, Int_t, Float_t, Int_t, Double_t, Float_t>> coincidences;
             for (size_t j = i + 1; j <signals.size(); ++j) { 
-                if (std::get<8>(signals[j]) > 100 && used[j] == false) {
+                if (std::get<8>(signals[j]) > amp_threshold && used[j] == false) {
                     if (std::get<0>(signals[j]) == std::get<0>(signals[i]) && 
                         std::get<5>(signals[j]) == std::get<5>(signals[i]) && 
                         std::get<4>(signals[j]) == std::get<4>(signals[i])) { 
@@ -506,7 +505,7 @@ void cathode_preselection(Int_t run_number) {
                             std::get<2>(signals[j]) == std::get<2>(signals[i]) && 
                             std::get<1>(signals[j]) == std::get<1>(signals[i])) {
                             
-                            if (abs(std::get<7>(signals[j]) - std::get<7>(signals[i])) < 450) {
+                            if (abs(std::get<7>(signals[j]) - std::get<7>(signals[i])) < time_for_coincidence) {
                                
 
                                 used[j] = true;
