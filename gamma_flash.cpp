@@ -8,6 +8,7 @@
 #include <TF1.h>
 #include <TMath.h>
 #include <vector>
+// this first part is the same as in anode_analysis.cpp
 Int_t mult=1;
 Int_t mult0 = 0, mult1 = 0, mult2 = 0, mult3 = 0, mult4 = 0, mult5 = 0, mult6 = 0, mult7 = 0, mult8 = 0, mult9 = 0;
 Int_t RunNumber, eventTime, BunchNumber, PSpulse;
@@ -67,7 +68,7 @@ void gamma_flash(int run_number) {
     intree->SetBranchAddress("BunchNumber", &BunchNumber);
     intree->SetBranchAddress("PSpulse", &PSpulse);
     intree->SetBranchAddress("PulseIntensity", &PulseIntensity);
-    intree->SetBranchAddress("detn", &detn_all);
+    intree->SetBranchAddress("detn", detn_all);
     intree->SetBranchAddress("mult0", &mult0);
     intree->SetBranchAddress("mult1", &mult1);
     intree->SetBranchAddress("mult2", &mult2);
@@ -78,26 +79,26 @@ void gamma_flash(int run_number) {
     intree->SetBranchAddress("mult7", &mult7);
     intree->SetBranchAddress("mult8", &mult8);
     intree->SetBranchAddress("mult9", &mult9);
-    intree->SetBranchAddress("tof0", &tof0);
-    intree->SetBranchAddress("tof1", &tof1);
-    intree->SetBranchAddress("tof2", &tof2);
-    intree->SetBranchAddress("tof3", &tof3);
-    intree->SetBranchAddress("tof4", &tof4);
-    intree->SetBranchAddress("tof5", &tof5);
-    intree->SetBranchAddress("tof6", &tof6);
-    intree->SetBranchAddress("tof7", &tof7);
-    intree->SetBranchAddress("tof8", &tof8);
-    intree->SetBranchAddress("tof9", &tof9);
-    intree->SetBranchAddress("amp0", &amp0);
-    intree->SetBranchAddress("amp1", &amp1);
-    intree->SetBranchAddress("amp2", &amp2);
-    intree->SetBranchAddress("amp3", &amp3);
-    intree->SetBranchAddress("amp4", &amp4);
-    intree->SetBranchAddress("amp5", &amp5);
-    intree->SetBranchAddress("amp6", &amp6);
-    intree->SetBranchAddress("amp7", &amp7);
-    intree->SetBranchAddress("amp8", &amp8);
-    intree->SetBranchAddress("amp9", &amp9);
+    intree->SetBranchAddress("tof0", tof0);
+    intree->SetBranchAddress("tof1", tof1);
+    intree->SetBranchAddress("tof2", tof2);
+    intree->SetBranchAddress("tof3", tof3);
+    intree->SetBranchAddress("tof4", tof4);
+    intree->SetBranchAddress("tof5", tof5);
+    intree->SetBranchAddress("tof6", tof6);
+    intree->SetBranchAddress("tof7", tof7);
+    intree->SetBranchAddress("tof8", tof8);
+    intree->SetBranchAddress("tof9", tof9);
+    intree->SetBranchAddress("amp0", amp0);
+    intree->SetBranchAddress("amp1", amp1);
+    intree->SetBranchAddress("amp2", amp2);
+    intree->SetBranchAddress("amp3", amp3);
+    intree->SetBranchAddress("amp4", amp4);
+    intree->SetBranchAddress("amp5", amp5);
+    intree->SetBranchAddress("amp6", amp6);
+    intree->SetBranchAddress("amp7", amp7);
+    intree->SetBranchAddress("amp8", amp8);
+    intree->SetBranchAddress("amp9", amp9);
     intree->SetBranchAddress("mult", &mult);
 
     Long64_t nentries = intree->GetEntries(); // getting the number of entries to loop over them
@@ -111,16 +112,16 @@ void gamma_flash(int run_number) {
     outtree->Branch("time", &eventTime, "time/I");
     outtree->Branch("psTime", &psTime, "psTime/D");
     outtree->Branch("PulseIntensity", &PulseIntensity, "PulseIntensity/F");
-    outtree->Branch("amp0", &amp0, "amp0/F");
-    outtree->Branch("amp1", &amp1, "amp1/F");
-    outtree->Branch("amp2", &amp2, "amp2/F");
-    outtree->Branch("amp3", &amp3, "amp3/F");
-    outtree->Branch("amp4", &amp4, "amp4/F");
-    outtree->Branch("amp5", &amp5, "amp5/F");
-    outtree->Branch("amp6", &amp6, "amp6/F");
-    outtree->Branch("amp7", &amp7, "amp7/F");
-    outtree->Branch("amp8", &amp8, "amp8/F");
-    outtree->Branch("amp9", &amp9, "amp9/F");
+    outtree->Branch("amp0", amp0, "amp0[mult0]/F");
+    outtree->Branch("amp1", amp1, "amp1[mult1]/F");
+    outtree->Branch("amp2", amp2, "amp2[mult2]/F");
+    outtree->Branch("amp3", amp3, "amp3[mult3]/F");
+    outtree->Branch("amp4", amp4, "amp4[mult4]/F");
+    outtree->Branch("amp5", amp5, "amp5[mult5]/F");
+    outtree->Branch("amp6", amp6, "amp6[mult6]/F");
+    outtree->Branch("amp7", amp7, "amp7[mult7]/F");
+    outtree->Branch("amp8", amp8, "amp8[mult8]/F");
+    outtree->Branch("amp9", amp9, "amp9[mult9]/F");
     outtree->Branch("detn", detn_all, "detn[10]/I");
     outtree->Branch("mult0", &mult0, "mult0/I");
     outtree->Branch("mult1", &mult1, "mult1/I");
@@ -133,16 +134,16 @@ void gamma_flash(int run_number) {
     outtree->Branch("mult8", &mult8, "mult8/I");
     outtree->Branch("mult9", &mult9, "mult9/I");
     outtree->Branch("mult", &mult, "mult/I");
-    outtree->Branch("gamma_flash0", &gamma_flash0, "gamma_flash0[mult0]/D");
-    outtree->Branch("gamma_flash1", &gamma_flash1, "gamma_flash1[mult1]/D");
-    outtree->Branch("gamma_flash2", &gamma_flash2, "gamma_flash2[mult2]/D");
-    outtree->Branch("gamma_flash3", &gamma_flash3, "gamma_flash3[mult3]/D");
-    outtree->Branch("gamma_flash4", &gamma_flash4, "gamma_flash4[mult4]/D");
-    outtree->Branch("gamma_flash5", &gamma_flash5, "gamma_flash5[mult5]/D");
-    outtree->Branch("gamma_flash6", &gamma_flash6, "gamma_flash6[mult6]/D");
-    outtree->Branch("gamma_flash7", &gamma_flash7, "gamma_flash7[mult7]/D");
-    outtree->Branch("gamma_flash8", &gamma_flash8, "gamma_flash8[mult8]/D");
-    outtree->Branch("gamma_flash9", &gamma_flash9, "gamma_flash9[mult9]/D");
+    outtree->Branch("gamma_flash0", gamma_flash0, "gamma_flash0[mult0]/D");
+    outtree->Branch("gamma_flash1", gamma_flash1, "gamma_flash1[mult1]/D");
+    outtree->Branch("gamma_flash2", gamma_flash2, "gamma_flash2[mult2]/D");
+    outtree->Branch("gamma_flash3", gamma_flash3, "gamma_flash3[mult3]/D");
+    outtree->Branch("gamma_flash4", gamma_flash4, "gamma_flash4[mult4]/D");
+    outtree->Branch("gamma_flash5", gamma_flash5, "gamma_flash5[mult5]/D");
+    outtree->Branch("gamma_flash6", gamma_flash6, "gamma_flash6[mult6]/D");
+    outtree->Branch("gamma_flash7", gamma_flash7, "gamma_flash7[mult7]/D");
+    outtree->Branch("gamma_flash8", gamma_flash8, "gamma_flash8[mult8]/D");
+    outtree->Branch("gamma_flash9", gamma_flash9, "gamma_flash9[mult9]/D");
     // now we will loop over the entries and search  the gamma flash, i.e. coincidence in all detectors
     //we loop over pickup data and check if parameters coincide with the gamma_flash for a proper adjustment of the times
     //we dont have to worry about tof or amp since there is only one tof and amp per bunchNumber so there will never be ambivalence
