@@ -7,12 +7,14 @@
 #include <tuple>
 #include <iostream>
 #include <cstdlib>
-Int_t mult=1; //time difference between signals CHECK IF TIME IS IN ns!!!!
-Int_t max_mul = 5; //max number of signals in coincidence in a single detector
+Int_t mult=1; //mult will be the number of signals in coincidence (each detector may have multiple signals)
+Int_t max_mul = 5; //max number of signals in coincidence in a single detector to limit the size
 Int_t mult0 = 0, mult1 = 0, mult2 = 0, mult3 = 0, mult4 = 0, mult5 = 0, mult6 = 0, mult7 = 0, mult8 = 0, mult9 = 0;
 Double_t tof0[5],tof1[5],tof2[5],tof3[5],tof4[5],tof5[5],tof6[5],tof7[5],tof8[5],tof9[5]; //must be hardcoded if arrays are defined at file scope
 Float_t amp0[5],amp1[5],amp2[5],amp3[5],amp4[5],amp5[5],amp6[5],amp7[5],amp8[5],amp9[5];  //must be hardcoded if arrays are defined at file scope
 Int_t detn_all[10]; 
+ // we have two variables that represent the same, but one is an array (with the signals in coincidence in each detector) 
+ //and the other is int but both count the number of signals in each coincidence
 Bool_t addCoincidences(Int_t the_detn) {
     if(the_detn<0 || the_detn>9) {        
         std::cout << "ERROR in addTof: the_detn value: " << the_detn << " not valid" << std::endl;
@@ -36,7 +38,7 @@ Bool_t addTof(Int_t the_detn, Double_t the_tof) {
         std::cout << "ERROR in addTof: the_detn value: " << the_detn << " not valid" << std::endl;
         return false;
     }
-    if(detn_all[the_detn] < 1 || detn_all[the_detn] > max_mul) {        
+    if(detn_all[the_detn] < 1 || detn_all[the_detn] > max_mul) {         //check the mutliplicity is valid
         std::cout << "ERROR in addTof: detn_all[" << the_detn <<"] value: " << detn_all[the_detn] << " not valid" << std::endl;
         for (int i = 0; i < detn_all[the_detn]; ++i) {
             if (the_detn == 0) std::cout << "tof0[" << i << "] = " << tof0[i] << std::endl;
@@ -91,7 +93,7 @@ void anode_analysis(int run_number, double threshold, int time_for_coincidence) 
     std::cout << "INFO: Processing run_number " << run_number << std::endl;
     std::vector<TFile*> files;
     std::vector<TTree*> trees;
-    for (int run = run_number; run <= run_number; ++run) { //select runs from run118558.root to run118795.root
+    for (int run = run_number; run <= run_number; ++run) { //select runs in case of multiple runs at once, but usually will be just one.
         std::string filename = "/nucl_lustre/n_tof_INTC_P_665/DATA/run" + std::to_string(run) + ".root";
         TFile *file = TFile::Open(filename.c_str());
         if (file && !file->IsZombie()) {
@@ -144,7 +146,12 @@ void anode_analysis(int run_number, double threshold, int time_for_coincidence) 
             if (ientry < 0) break;
             nb = tree->GetEntry(jentry); nbytes += nb;
             if (detn <7){
-                tof+=15; // adding offset to the time in the first detectors (taking uranium as reference)
+                tof+=15; 
+                // adding offset to the time in the first detectors (taking uranium as reference)
+                //the reason for this offset is the different time references between the 2 DAQ systems used.
+                // we add this offset so coincidences can be found between all detectors within a time window.
+                // because if they were to be found without this offset, the time window would have to be very large
+                // and this would lead to a lot of accidental coincidences.
             }
             signals.emplace_back(RunNumber, time, psTime, BunchNumber, PSpulse, PulseIntensity, detn, tof, amp); //insert tuple at the end
         }
@@ -167,7 +174,7 @@ void anode_analysis(int run_number, double threshold, int time_for_coincidence) 
                                     used[i] = true;
                                     //mark as used only after the coincidence is found
                                     if (coincidences.size() == 0) {
-                                        coincidences.push_back(signals[i]); //add only once
+                                        coincidences.push_back(signals[i]); //add only once the first signal
                                     
                                     }
                                     coincidences.push_back(signals[j]);
