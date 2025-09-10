@@ -184,7 +184,7 @@ Bool_t addAmp(Int_t detn_index, Float_t the_amp) {
     return true;
 }
 
-void anode_cathode_final(Int_t run_number) {
+void anode_cathode_final(Int_t run_number, double time_coincidence_cathode, float cathode_threshold) {
     std::string filename = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/anodes_final/out_run" + std::to_string(run_number) + ".root";
     TFile *file = TFile::Open(filename.c_str()) ;//coincidences file
     TTree *intree = (TTree*)file->Get("coincidences");
@@ -500,9 +500,8 @@ void anode_cathode_final(Int_t run_number) {
     }   
     std::cout << "INFO: signals calibrated with the pickup!" << std::endl; // print after calibration
 
-    for (Long64_t i = 0; i < 1000; i++) {
+    for (Long64_t i = 0; i < nentries; i++) {
         intree->GetEntry(i);
-        std::cout << "Event: " << i << std::endl;
         std::vector<std::tuple<std::tuple<Int_t, Int_t, Double_t, Int_t, Int_t, Float_t, Int_t, Double_t, Float_t>, Double_t, Int_t>> coincidences_cathode;
         for (Long64_t j = 0; j < cathode_signals.size(); j++) {
             if (!used[j]){ // skip already used signals
@@ -526,7 +525,7 @@ void anode_cathode_final(Int_t run_number) {
                             case 9: anode_tof = new Double_t[mult9]; anode_amp = new Float_t[mult9]; std::copy(tof9, tof9 + mult9, anode_tof); std::copy(amp9, amp9 + mult9, anode_amp); anode_mult = mult9; break;
                             }
                                 for (int l = 0; l < anode_mult; l++) { // loop over cathode hits
-                                    if (std::get<7>(cathode_signals[j]) >  anode_tof[l]-50 && std::get<7>(cathode_signals[j]) < anode_tof[l]+400 && std::get<8>(cathode_signals[j])<=2*anode_amp[l] && std::get<8>(cathode_signals[j])>300 && std::get<6>(cathode_signals[j])>=10*k && std::get<6>(cathode_signals[j])<10*k+4) { 
+                                    if (std::get<7>(cathode_signals[j]) >=  anode_tof[l] && std::get<7>(cathode_signals[j]) < anode_tof[l]+time_coincidence_cathode && std::get<8>(cathode_signals[j])<=2*anode_amp[l] && std::get<8>(cathode_signals[j])>cathode_threshold && std::get<6>(cathode_signals[j])>=10*k && std::get<6>(cathode_signals[j])<10*k+4) { 
                                         used[j] = true; // mark the signal as used)
                                         coincidences_cathode.push_back(std::make_tuple(cathode_signals[j], anode_tof[l], k)); // add the signal to the coincidences
                                         }
@@ -546,10 +545,10 @@ void anode_cathode_final(Int_t run_number) {
     std::cout << "INFO: number of coincidences in the first step: " << configurations.size() << std::endl; // print number of coincidences
     Int_t lonelyCoincidence = 0;
     for (size_t i = 0; i < cathode_signals.size(); ++i) {
-        if (used[i] == false && std::get<8>(cathode_signals[i]) > 300) {
+        if (used[i] == false && std::get<8>(cathode_signals[i]) > cathode_threshold) {
             for (size_t j=0; j<configurations.size();j++){
                 for (size_t k = 0; k < configurations[j].size(); ++k) {
-                    if (std::get<0>(cathode_signals[i]) == std::get<0>(std::get<0>(configurations[j][k])) && std::get<8>(std::get<0>(configurations[j][k])) > 300 && std::get<5>(cathode_signals[i]) == std::get<5>(std::get<0>(configurations[j][k])) && std::get<4>(cathode_signals[i]) == std::get<4>(std::get<0>(configurations[j][k]))) {
+                    if (std::get<0>(cathode_signals[i]) == std::get<0>(std::get<0>(configurations[j][k])) && std::get<8>(std::get<0>(configurations[j][k])) > cathode_threshold && std::get<5>(cathode_signals[i]) == std::get<5>(std::get<0>(configurations[j][k])) && std::get<4>(cathode_signals[i]) == std::get<4>(std::get<0>(configurations[j][k]))) {
                         if (std::get<1>(cathode_signals[i]) == std::get<1>(std::get<0>(configurations[j][k])) && std::get<3>(cathode_signals[i]) == std::get<3>(std::get<0>(configurations[j][k])) && std::get<4>(cathode_signals[i]) == std::get<4>(std::get<0>(configurations[j][k])) && std::get<2>(cathode_signals[i]) == std::get<2>(std::get<0>(configurations[j][k]))) {
                             if ( std::get<6>(cathode_signals[i])<=std::get<2>(configurations[j][k])*10+4 && std::get<6>(cathode_signals[i])>=std::get<2>(configurations[j][k])*10 && abs(std::get<7>(cathode_signals[i]) - std::get<7>(std::get<0>(configurations[j][k]))) < 20) {
                                 lonelyCoincidence++;
@@ -562,7 +561,7 @@ void anode_cathode_final(Int_t run_number) {
                 }
             }
         }
-        if (used[i]==true && std::get<8>(cathode_signals[i])>300) {
+        if (used[i]==true && std::get<8>(cathode_signals[i])>cathode_threshold) {
             Int_t coincidence_index = -1;
             for (Int_t j = 0; j < configurations.size(); ++j) {
                 for (Int_t k = 0; k < configurations[j].size(); ++k) {
@@ -583,7 +582,7 @@ void anode_cathode_final(Int_t run_number) {
                 if (k!= coincidence_index){ //ensure that the coincidence we are merging is not the same
                     for (Int_t l=0; l<configurations[k].size(); l++){ // loop over the elements of the coincidence to search for possible candidates
                         if (std::get<0>(std::get<0>(configurations[k][l])) == std::get<0>(cathode_signals[i]) && std::get<1>(std::get<0>(configurations[k][l])) == std::get<1>(cathode_signals[i]) && std::get<2>(std::get<0>(configurations[k][l])) == std::get<2>(cathode_signals[i])) {                                    
-                            if (std::get<8>(std::get<0>(configurations[k][l]))>300 && std::get<0>(cathode_signals[i]) == std::get<0>(std::get<0>(configurations[k][l])) && std::get<1>(std::get<0>(configurations[k][l])) == std::get<1>(cathode_signals[i]) && std::get<2>(std::get<0>(configurations[k][l])) == std::get<2>(cathode_signals[i])) {
+                            if (std::get<8>(std::get<0>(configurations[k][l]))>cathode_threshold && std::get<0>(cathode_signals[i]) == std::get<0>(std::get<0>(configurations[k][l])) && std::get<1>(std::get<0>(configurations[k][l])) == std::get<1>(cathode_signals[i]) && std::get<2>(std::get<0>(configurations[k][l])) == std::get<2>(cathode_signals[i])) {
                                 if (std::get<3>(cathode_signals[i]) == std::get<3>(std::get<0>(configurations[k][l])) && std::get<4>(cathode_signals[i]) == std::get<4>(std::get<0>(configurations[k][l])) && std::get<5>(cathode_signals[i]) == std::get<5>(std::get<0>(configurations[k][l])) && std::get<6>(cathode_signals[i])== std::get<6>(std::get<0>(configurations[k][l]))) {
                                    for (size_t m=0; m<configurations[coincidence_index].size();m++){
                                         if (std::get<2>(configurations[coincidence_index][m])==std::get<2>(configurations[k][l]) && std::get<1>(configurations[coincidence_index][m])== std::get<1>(configurations[k][l])){ //check if the signal is already in the coincidence
