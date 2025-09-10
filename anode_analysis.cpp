@@ -88,7 +88,7 @@ Bool_t addAmp(Int_t the_detn, Float_t the_amp) {
     if(the_detn==9) amp9[mult9 - 1] = the_amp;
     return true;
 }
-void anode_analysis(int run_number, double threshold, int time_for_coincidence) { 
+void anode_analysis(int run_number, float threshold, double time_for_coincidence) {
 
     std::cout << "INFO: Processing run_number " << run_number << std::endl;
     std::vector<TFile*> files;
@@ -266,7 +266,7 @@ void anode_analysis(int run_number, double threshold, int time_for_coincidence) 
     outtree->Branch("BunchNumber", &BunchNumber, "BunchNumber/I");
     outtree->Branch("PSpulse", &PSpulse, "PSpulse/I");
     outtree->Branch("PulseIntensity", &PulseIntensity, "PulseIntensity/F");
-    outtree->Branch("detn",&detn_all,"detn_all[10]/I");
+    outtree->Branch("detn",detn_all,"detn_all[10]/I");
     outtree->Branch("mult0",&mult0,"mult0/I");
     outtree->Branch("mult1",&mult1,"mult1/I");
     outtree->Branch("mult2",&mult2,"mult2/I");
