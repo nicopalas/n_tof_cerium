@@ -7,8 +7,7 @@
 #include <tuple>
 #include <iostream>
 #include <cstdlib>
-Int_t mult=1;
-Int_t time_for_coincidence = 10; //time difference between signals CHECK IF TIME IS IN ns!!!!
+Int_t mult=1; //time difference between signals CHECK IF TIME IS IN ns!!!!
 Int_t max_mul = 5; //max number of signals in coincidence in a single detector
 Int_t mult0 = 0, mult1 = 0, mult2 = 0, mult3 = 0, mult4 = 0, mult5 = 0, mult6 = 0, mult7 = 0, mult8 = 0, mult9 = 0;
 Double_t tof0[5],tof1[5],tof2[5],tof3[5],tof4[5],tof5[5],tof6[5],tof7[5],tof8[5],tof9[5]; //must be hardcoded if arrays are defined at file scope
@@ -87,7 +86,7 @@ Bool_t addAmp(Int_t the_detn, Float_t the_amp) {
     if(the_detn==9) amp9[mult9 - 1] = the_amp;
     return true;
 }
-void anode_analysis(int run_number) { 
+void anode_analysis(int run_number, double threshold, int time_for_coincidence) { 
 
     std::cout << "INFO: Processing run_number " << run_number << std::endl;
     std::vector<TFile*> files;
@@ -155,12 +154,12 @@ void anode_analysis(int run_number) {
         std::vector<bool> used(signals.size(), false); // track used signals to avoid double counting
     
         for (size_t i = 0; i < signals.size(); ++i) {
-            if (used[i] == false && std::get<8>(signals[i]) > 800) { 
+            if (used[i] == false && std::get<8>(signals[i]) > threshold) { 
                 std::vector<std::tuple<Int_t, Int_t, Double_t, Int_t, Int_t, Float_t, Int_t, Double_t, Float_t>> coincidences;
                  // start in the first detector and not used
 
                 for (size_t j = i + 1; j < signals.size(); ++j) { // search in the next signals in next detectors
-                    if (std::get<8>(signals[j])>800  && used[j] == false){
+                    if (std::get<8>(signals[j])>threshold  && used[j] == false){
                         if (std::get<0>(signals[j]) == std::get<0>(signals[i]) && std::get<5>(signals[j]) == std::get<5>(signals[i]) && std::get<4>(signals[j]) == std::get<4>(signals[i])) { //check everything coincides
                             if (std::get<3>(signals[j]) == std::get<3>(signals[i]) && std::get<2>(signals[j]) == std::get<2>(signals[i]) && std::get<1>(signals[j]) == std::get<1>(signals[i])) {
                                 if (abs(std::get<7>(signals[j]) - std::get<7>(signals[i])) < time_for_coincidence) {
@@ -191,10 +190,10 @@ void anode_analysis(int run_number) {
         //if they were not used, we will search for the closest coincidence and merge them...
         Int_t lonelyCoincidence = 0;
         for (size_t i = 0; i < signals.size(); ++i) {
-            if (used[i] == false && std::get<8>(signals[i]) > 800) {
+            if (used[i] == false && std::get<8>(signals[i]) > threshold) {
                 for (size_t j=0; j<configurations.size();j++){
                     for (size_t k = 0; k < configurations[j].size(); ++k) {
-                        if (std::get<0>(signals[i]) == std::get<0>(configurations[j][k]) && std::get<8>(configurations[j][k]) >800 && std::get<5>(signals[i]) == std::get<5>(configurations[j][k]) && std::get<4>(signals[i]) == std::get<4>(configurations[j][k])) {
+                        if (std::get<0>(signals[i]) == std::get<0>(configurations[j][k]) && std::get<8>(configurations[j][k]) >threshold && std::get<5>(signals[i]) == std::get<5>(configurations[j][k]) && std::get<4>(signals[i]) == std::get<4>(configurations[j][k])) {
                             if (std::get<1>(signals[i])==std::get<1>(configurations[j][k]) && std::get<3>(signals[i]) == std::get<3>(configurations[j][k]) && std::get<4>(signals[i]) == std::get<4>(configurations[j][k]) && std::get<2>(signals[i]) == std::get<2>(configurations[j][k])) {
                                 if (abs(std::get<7>(signals[i]) - std::get<7>(configurations[j][k])) < time_for_coincidence) {
                                     lonelyCoincidence++;
@@ -208,7 +207,7 @@ void anode_analysis(int run_number) {
                     }
                 }
                 }
-            if (used[i]==true && std::get<8>(signals[i])>800) {
+            if (used[i]==true && std::get<8>(signals[i])>threshold) {
                 Int_t coincidence_index=-1;
                 for (Int_t j = 0; j < configurations.size(); ++j) {
                     for (Int_t k = 0; k < configurations[j].size(); ++k) {
@@ -228,7 +227,7 @@ void anode_analysis(int run_number) {
                     for (size_t k=0; k<configurations.size();k++){ //loop to find coincidences
                         if (k!= coincidence_index){
                         for (size_t l=0; l<configurations[k].size(); l++){
-                            if (std::get<8>(configurations[k][l])>800 && std::get<0>(signals[i]) == std::get<0>(configurations[k][l]) && std::get<1>(configurations[k][l]) == std::get<1>(signals[i]) && std::get<2>(configurations[k][l]) == std::get<2>(signals[i])) {
+                            if (std::get<8>(configurations[k][l])>threshold && std::get<0>(signals[i]) == std::get<0>(configurations[k][l]) && std::get<1>(configurations[k][l]) == std::get<1>(signals[i]) && std::get<2>(configurations[k][l]) == std::get<2>(signals[i])) {
                                 if (std::get<3>(signals[i]) == std::get<3>(configurations[k][l]) && std::get<4>(signals[i]) == std::get<4>(configurations[k][l]) && std::get<5>(signals[i]) == std::get<5>(configurations[k][l]) && std::get<6>(signals[i])== std::get<6>(configurations[k][l])) {
                                         if (abs(std::get<7>(signals[i])- std::get<7>(configurations[k][l])) < time_for_coincidence) {
                                                 for (size_t m=0; m<configurations[k].size(); m++){
