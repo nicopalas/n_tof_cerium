@@ -84,28 +84,40 @@ for(int k=0;k<NDET;k++){
     vector<double> peaksX, peaksY;
     for(int j=0;j<sx.GetNPeaks();j++){
         double p = sx.GetPositionX()[j];
-        if(fabs(p) > 90 && fabs(p) < 130) peaksX.push_back(p); // avoid peaks in the center (not related to reflections)
+        if(fabs(p) > 90 && fabs(p) < 120) peaksX.push_back(p); // avoid peaks in the center (not related to reflections)
     }
     for(int j=0;j<sy.GetNPeaks();j++){
         double p = sy.GetPositionX()[j];
-        if(fabs(p) > 90 && fabs(p) < 130) peaksY.push_back(p);
+        if(fabs(p) > 90 && fabs(p) < 120) peaksY.push_back(p);
     }
 
     sort(peaksX.begin(), peaksX.end()); //sorting by positions
     sort(peaksY.begin(), peaksY.end());
 
     double px=0, py=0;
-    // if more than one peak appears in teh region, find peak closest to 110
-    if (!peaksX.empty()) {
-        auto it = min_element(peaksX.begin(), peaksX.end(),
-            [](double a, double b) { return fabs(a - 110) < fabs(b - 110); });
-        px = fabs(*it);
+    if(peaksX.size()>=2) {
+        // Find peaks closest to +110 and -110
+        auto it_pos = min_element(peaksX.begin(), peaksX.end(), [](double a, double b){
+            return fabs(a - 110) < fabs(b - 110);
+        });
+        auto it_neg = min_element(peaksX.begin(), peaksX.end(), [](double a, double b){
+            return fabs(a + 110) < fabs(b + 110);
+        });
+        px = 0.5 * (fabs(*it_pos) + fabs(*it_neg));
+    } else if(peaksX.size()==1) {
+        px = fabs(peaksX[0]);
     }
 
-    if (!peaksY.empty()) {
-        auto it = min_element(peaksY.begin(), peaksY.end(),
-            [](double a, double b) { return fabs(a - 110) < fabs(b - 110); });
-        py = fabs(*it);
+    if(peaksY.size()>=2) {
+        auto it_pos = min_element(peaksY.begin(), peaksY.end(), [](double a, double b){
+            return fabs(a - 110) < fabs(b - 110);
+        });
+        auto it_neg = min_element(peaksY.begin(), peaksY.end(), [](double a, double b){
+            return fabs(a + 110) < fabs(b + 110);
+        });
+        py = 0.5 * (fabs(*it_pos) + fabs(*it_neg));
+    } else if(peaksY.size()==1) {
+        py = fabs(peaksY[0]);
     }
 
     if(px>1e-6) vX[k] = L_mm/px;
@@ -115,16 +127,40 @@ for(int k=0;k<NDET;k++){
     cCalib->cd(2*k+1);
     gPad->SetLogy();
     hX[k]->Draw();
-    for(double p : peaksX){
-        TLine *l = new TLine(p,0,p,hX[k]->GetMaximum());
-        l->SetLineColor(kRed); l->SetLineStyle(2); l->Draw("same");
+    // Draw a line for the peaks used for speed calculation
+    if(peaksX.size() >= 2) {
+        auto it_pos = min_element(peaksX.begin(), peaksX.end(), [](double a, double b){
+            return fabs(a - 110) < fabs(b - 110);
+        });
+        auto it_neg = min_element(peaksX.begin(), peaksX.end(), [](double a, double b){
+            return fabs(a + 110) < fabs(b + 110);
+        });
+        TLine *l_pos = new TLine(*it_pos, 0, *it_pos, hX[k]->GetMaximum());
+        l_pos->SetLineColor(kRed); l_pos->SetLineStyle(1); l_pos->Draw("same");
+        TLine *l_neg = new TLine(*it_neg, 0, *it_neg, hX[k]->GetMaximum());
+        l_neg->SetLineColor(kRed); l_neg->SetLineStyle(1); l_neg->Draw("same");
+    } else if(peaksX.size() == 1) {
+        TLine *l = new TLine(peaksX[0], 0, peaksX[0], hX[k]->GetMaximum());
+        l->SetLineColor(kRed); l->SetLineStyle(1); l->Draw("same");
     }
-    // Y
+
     cCalib->cd(2*k+2);
-    gPad->SetLogy();
+    gPad->SetLogy(); // logarithmic scale
     hY[k]->Draw();
-    for(double p : peaksY){
-        TLine *l = new TLine(p,0,p,hY[k]->GetMaximum());
+
+    if(peaksY.size() >= 2) {
+        auto it_pos = min_element(peaksY.begin(), peaksY.end(), [](double a, double b){
+            return fabs(a - 110) < fabs(b - 110);
+        });
+        auto it_neg = min_element(peaksY.begin(), peaksY.end(), [](double a, double b){
+            return fabs(a + 110) < fabs(b + 110);
+        });
+        TLine *l_pos = new TLine(*it_pos, 0, *it_pos, hY[k]->GetMaximum());
+        l_pos->SetLineColor(kBlue); l_pos->SetLineStyle(2); l_pos->Draw("same");
+        TLine *l_neg = new TLine(*it_neg, 0, *it_neg, hY[k]->GetMaximum());
+        l_neg->SetLineColor(kBlue); l_neg->SetLineStyle(2); l_neg->Draw("same");
+    } else if(peaksY.size() == 1) {
+        TLine *l = new TLine(peaksY[0], 0, peaksY[0], hY[k]->GetMaximum());
         l->SetLineColor(kBlue); l->SetLineStyle(2); l->Draw("same");
     }
 
