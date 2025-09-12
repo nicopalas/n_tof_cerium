@@ -46,7 +46,7 @@ void calibrate_amplitudes(const char* infile) {
     Long64_t nev = t->GetEntries();
     for (Long64_t i=0;i<nev;i++) {
         t->GetEntry(i);
-        if (mult <= 8) continue; // gamma flash condition
+        if (mult <= 8) continue; // gamma flash condition mult>8
         for (int d=0; d<NDET; d++) {
             for (int j=0;j<mults[d] && j<MAXHITS; j++) {
                 hflash[d]->Fill(amps[d][j]);
@@ -65,21 +65,21 @@ void calibrate_amplitudes(const char* infile) {
         cAll->cd(d+1);
         hflash[d]->Draw();
 
-        Int_t nfound = spectrum.Search(hflash[d], 2, "", 0.4);
+        Int_t nfound = spectrum.Search(hflash[d], 2, "", 0.4); //set discrimination to 0.4 over the maximum of the histogram to avoid small peaks
         double *xpeaks = spectrum.GetPositionX();
         std::vector<double> peaks(xpeaks, xpeaks + nfound);
         std::sort(peaks.begin(), peaks.end());
 
         double p1 = 0;
-        for (double p : peaks) if (TMath::Abs(p - 6500) < 1500) { p1 = p; break; }
+        for (double p : peaks) if (TMath::Abs(p - 6500) < 1500) { p1 = p; break; } // look for peak near 6500 (where we expect it)
         if (p1 == 0) {
             int binMax = hflash[d]->GetMaximumBin();
             p1 = hflash[d]->GetBinCenter(binMax);
         }
 
         TString fname = Form("f1_det%d", d);
-        TF1 *f1 = new TF1(fname, "gaus", p1-2500, p1+2500);
-        f1->SetParameters(hflash[d]->GetMaximum(), p1, 500.0);
+        TF1 *f1 = new TF1(fname, "gaus", p1-2500, p1+2500); // fit around the peak
+        f1->SetParameters(hflash[d]->GetMaximum(), p1, 500.0); 
         hflash[d]->Fit(f1, "RQ");
         peakpos1[d] = f1->GetParameter(1);
 
@@ -90,34 +90,34 @@ void calibrate_amplitudes(const char* infile) {
     cAll->SaveAs("gamma_flash_peaks.pdf");
     delete cAll;
 
-    // Reference peak
+    // Reference peak as the mean of all the peaks found.
     double refPeak = 0; int count=0;
-    for (int d=0; d<NDET; d++) if (peakpos1[d]>0) { refPeak += peakpos1[d]; count++; }
+    for (int d=0; d<NDET; d++) if (peakpos1[d]>0) { refPeak += peakpos1[d]; count++; } // avoid detectors with no peak found
     refPeak /= count;
     std::cout << "Reference peak = " << refPeak << "\n";
 
-    // Calibration factors
+    // Calibration procedure
     double calibFactor[NDET];
     for (int d=0; d<NDET; d++) {
         calibFactor[d] = (peakpos1[d]>0) ? refPeak/peakpos1[d] : 1.0;
         std::cout << "Detector " << d << " calib = " << calibFactor[d] << "\n";
     }
 
-    // Histograms for calibrated spectra (all events)
+    // Histograms for calibrated spectra (gamma_flash events, mult>8)
     TH1F *hcal[NDET];
     for (int d=0; d<NDET; d++) {
         hcal[d] = new TH1F(Form("hcal%d",d), "", 400, 0, 30000);
         hcal[d]->Sumw2();
     }
 
-    // Histograms for background (mult < 8)
+    // Histograms for background (mult < 8). 
     TH1F *hbg[NDET];
     for (int d=0; d<NDET; d++) {
         hbg[d] = new TH1F(Form("hbg%d",d), "", 400, 0, 10000);
         hbg[d]->Sumw2();
     }
 
-    // Fill calibrated + background
+    // Fill gamma flash + background
     for (Long64_t i=0;i<nev;i++) {
         t->GetEntry(i);
         for (int d=0; d<NDET; d++) {
@@ -133,7 +133,7 @@ void calibrate_amplitudes(const char* infile) {
         }
     }
 
-    // Overlay calibrated spectra (linear scale, full y range)
+    // Overlay calibrated spectra (linear scale)
     TCanvas *cComp = new TCanvas("cComp", "Calibrated spectra comparison", 1000, 800);
     hcal[0]->SetLineColor(kBlack);
     hcal[0]->Draw("HIST");
@@ -149,7 +149,7 @@ void calibrate_amplitudes(const char* infile) {
     cComp->SaveAs("calibrated_spectra.pdf");
     delete cComp;
 
-    // Overlay background spectra (log y)
+    // Overlay background spectra (logarithmic scale)
     TCanvas *cBg = new TCanvas("cBg", "Background spectra", 1000, 800);
     cBg->SetLogy();
     hbg[0]->SetLineColor(kBlack);
