@@ -3,13 +3,7 @@ import matplotlib.pyplot as plt
 from math import degrees
 
 class PPACFissionSimulationSimple:
-    """
-    Simplified PPAC fission-fragment simulation.
-    Energy loss = dE/dx * path_length with path corrected by 1/|cos(theta)|.
-    Target traversal depends on reaction depth.
-    Only forward-going fragments traverse the backing.
-    Assignment of forward/backward fragments is random.
-    """
+
 
     def __init__(self, n_events=100000, seed=None, dE_dx_table=None):
         if seed is not None:
@@ -17,25 +11,23 @@ class PPACFissionSimulationSimple:
 
         self.n_events = n_events
 
-        # Fragment properties
+
         self.Z1, self.A1 = 40, 95   # fragment 1: Z=40
         self.Z2, self.A2 = 52, 139  # fragment 2: Z=52
         self.E0_fission = 165.0     # total kinetic energy (MeV)
 
-        # Geometry parameters
+
         self.detector_distance = 5.0   # cm separation between detectors
         self.z_det_back = -self.detector_distance / 2.0
         self.z_det_front = +self.detector_distance / 2.0
         self.detector_width = 20.0     # cm
         self.detector_height = 20.0    # cm
-        self.target_radius = 4.0       # cm
+        self.target_radius = 4.        # cm
 
-        # Thicknesses (cm)
         self.target_thickness = 1.64e-4   # cm (1.64 µm for uranium target)
         self.backing_thickness = 2.5e-4   # cm (2.5 µm)
-        self.gas_half_thickness = self.detector_distance / 2.0  # cm (2.5 cm)
+        self.gas_thickness = self.detector_distance / 2.0  # cm (2.5 cm)
 
-        # dE/dx lookup table (example values, replace with real data)
         if dE_dx_table is None:
             self.dE_dx_table = {
                 'Target':       {40: 21.639/1.64*10000 , 52:18.995/1.64*10000 },
@@ -45,7 +37,6 @@ class PPACFissionSimulationSimple:
         else:
             self.dE_dx_table = dE_dx_table
 
-        # Storage arrays
         self.x_back_local, self.y_back_local = [], []
         self.x_front_local, self.y_front_local = [], []
         self.x_back_world, self.y_back_world = [], []
@@ -59,28 +50,28 @@ class PPACFissionSimulationSimple:
 
         self.theta_deg, self.phi_deg, self.cos_theta = [], [], []
 
-    # ---------------- Geometry utilities ----------------
-    def target_position(self, n):
+
+    def target_position(self, n): # uniform in circle, uniform in thickness
         phi = np.random.uniform(0, 2*np.pi, n)
         r = self.target_radius * np.sqrt(np.random.uniform(0, 1, n))
         # random depth inside target
         z_depth = np.random.uniform(-self.target_thickness/2, self.target_thickness/2, n)
         return np.vstack([r*np.cos(phi), r*np.sin(phi), z_depth]).T
 
-    def fission_directions(self, n):
+    def fission_directions(self, n): # isotropic 
         phi = np.random.uniform(0, 2*np.pi, n)
-        cos_theta = np.random.uniform(-1, 1, n)
-        theta = np.arccos(cos_theta)
+        theta = np.arccos(np.random.uniform(0, 1, n)) #forward hemisphere
+        cos_theta = np.cos(theta)
         sin_theta = np.sin(theta)
         return np.vstack([sin_theta*np.cos(phi), sin_theta*np.sin(phi), cos_theta]).T
 
-    def fission_energies(self, n):
+    def fission_energies(self, n): # based on mass split
         mass_ratio = self.A2 / self.A1
         E1 = self.E0_fission / (1 + mass_ratio)
         E2 = self.E0_fission - E1
         return np.full(n, E1), np.full(n, E2)
 
-    def line_plane_intersection(self, origin, direction, z_plane):
+    def line_plane_intersection(self, origin, direction, z_plane): #see if the fragment reaches the detector plane
         if abs(direction[2]) < 1e-12:
             return None
         t = (z_plane - origin[2]) / direction[2]
@@ -88,17 +79,16 @@ class PPACFissionSimulationSimple:
             return None
         return origin + t * direction
 
-    def in_detector(self, point, detector_type='front'):
-        x, y = point[0], point[1]
+    def in_detector(self, point, detector_type='front'): # check if the intersection point is within detector bounds (since they are tilted, x limits depend on the angle by d*tan(45 degrees))
         if detector_type == 'front':
             x_high_limit = self.detector_width / 2 + 2.5
             x_low_limit = -self.detector_width / 2 + 2.5
         else:
             x_high_limit = self.detector_width / 2 - 2.5
             x_low_limit = -self.detector_width / 2 - 2.5
-        return (x >= x_low_limit) and (x <= x_high_limit) and (abs(y) <= self.detector_height / 2)
+        return (point[0] >= x_low_limit) and (point[0] <= x_high_limit) and (abs(point[1]) <= self.detector_height / 2)
 
-    def primed_to_beam_coordinates(self, point):
+    def primed_to_beam_coordinates(self, point): # rotation by 45 degrees around y axis
         x_p, y_p, z_p = point
         c45 = np.cos(np.radians(45.0))
         s45 = np.sin(np.radians(45.0))
@@ -107,7 +97,6 @@ class PPACFissionSimulationSimple:
         z_b = -x_p * c45 + z_p * s45
         return np.array([x_b, y_b, z_b])
 
-    # ---------------- Energy-loss ----------------
     def energy_loss_simple(self, Z, material_name, path_length_cm):
         if material_name not in self.dE_dx_table:
             return 0.0
@@ -119,7 +108,6 @@ class PPACFissionSimulationSimple:
             dE_dx = table[int(zs[np.argmin(np.abs(zs - Z))])]
         return dE_dx * path_length_cm
 
-    # ---------------- Main simulation ----------------
     def simulate(self):
         origins = self.target_position(self.n_events)
         directions = self.fission_directions(self.n_events)
@@ -138,36 +126,30 @@ class PPACFissionSimulationSimple:
             else:
                 forward_frag = {'Z': self.Z2, 'A': self.A2, 'E': E2_initial[i]}
                 backward_frag = {'Z': self.Z1, 'A': self.A1, 'E': E1_initial[i]}
+            dir_forward= direction
+            dir_backward= -direction
+            cos_f = max(abs(dir_forward[2]), -99999999)
 
-            dir_forward, dir_backward = direction, -direction
-            target_normal = np.array([np.sin(np.radians(-45.0)), 0.0, np.cos(np.radians(-45.0))])
-            target_normal /= np.linalg.norm(target_normal)
-
-            # ---------------- Path lengths ----------------
-            costheta=abs(dir_forward[2])
-            cos_f = max(abs(np.dot(dir_forward, target_normal)), 1e-5)
-
-            # Target half thickness
             half_t = self.target_thickness / 2.0
             z0 = origin[2]
-            # forward: distance to exit forward face
             path_target_forward = (half_t - z0) / cos_f
-            # backward: distance to exit backward face
             path_target_backward = (half_t + z0) / cos_f
 
             # backing: only forward-going fragment
             path_backing = self.backing_thickness / cos_f
 
             # gas paths
-            path_gas_forward = self.gas_half_thickness / cos_f
-            path_gas_backward = self.gas_half_thickness / cos_f
+            path_gas_forward = self.gas_thickness / cos_f
+            path_gas_backward = self.gas_thickness / cos_f
 
-            # ---------------- Energy losses ----------------
             loss_target_forward = self.energy_loss_simple(forward_frag['Z'], 'Target', path_target_forward)
             loss_target_backward = self.energy_loss_simple(backward_frag['Z'], 'Target', path_target_backward)
 
             E_after_target_forward = max(forward_frag['E'] - loss_target_forward, 0.0)
             E_after_target_backward = max(backward_frag['E'] - loss_target_backward, 0.0)
+            if E_after_target_forward <= 0.5 or E_after_target_backward <= 0.5:
+                stopped += 1
+                continue
 
             loss_back_forward = self.energy_loss_simple(forward_frag['Z'], 'Backing (Al)', path_backing)
             E_after_back_forward = max(E_after_target_forward - loss_back_forward, 0.0)
@@ -175,6 +157,16 @@ class PPACFissionSimulationSimple:
             E_after_back_backward = E_after_target_backward #backward fragment does not traverse backing
 
             if E_after_back_forward <= 0.5 or E_after_back_backward <= 0.5:
+                stopped += 1
+                continue
+
+            # gas energy losses
+            loss_gas_forward = self.energy_loss_simple(forward_frag['Z'], 'Gas (C3F8)', path_gas_forward)
+            loss_gas_backward = self.energy_loss_simple(backward_frag['Z'], 'Gas (C3F8)', path_gas_backward)
+
+            E_final_forward = max(E_after_back_forward - loss_gas_forward, 0.0)
+            E_final_backward = max(E_after_back_backward - loss_gas_backward, 0.0)
+            if E_final_forward <= 0.5 or E_final_backward <= 0.5:
                 stopped += 1
                 continue
 
@@ -203,12 +195,7 @@ class PPACFissionSimulationSimple:
             self.x_back_world.append(hb_beam[0])
             self.y_back_world.append(hb_beam[1])
 
-            # gas energy losses
-            loss_gas_forward = self.energy_loss_simple(forward_frag['Z'], 'Gas (C3F8)', path_gas_forward)
-            loss_gas_backward = self.energy_loss_simple(backward_frag['Z'], 'Gas (C3F8)', path_gas_backward)
-
-            E_final_forward = max(E_after_back_forward - loss_gas_forward, 0.0)
-            E_final_backward = max(E_after_back_backward - loss_gas_backward, 0.0)
+            
 
             # store
             self.initial_energy_forward.append(forward_frag['E'])
@@ -234,7 +221,7 @@ class PPACFissionSimulationSimple:
                 self.theta_deg.append(theta)
                 self.phi_deg.append(phi)
 
-        print(f"Simulation completed: {accepted}/{self.n_events-stopped} accepted ({accepted/(self.n_events-stopped)*100:.2f}%)")
+        print(f"Simulation completed: {accepted}/{self.n_events} accepted ({accepted/(self.n_events)*100:.2f}%)")
         print(f"Simulation stopped: {stopped}/{self.n_events} stopped ({stopped/self.n_events*100:.2f}%)")
         self._convert_to_arrays()
         return accepted, stopped
@@ -254,19 +241,51 @@ class PPACFissionSimulationSimple:
 
     # ---------------- Plotting ----------------
     def plot_detector_hits(self):
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        axes[0].hist2d(self.x_front_world, self.y_front_world, bins=100, cmap='viridis')
-        axes[0].set_title('Front detector hits (world)'); axes[0].axis('equal')
-        axes[1].hist2d(self.x_back_world, self.y_back_world, bins=100, cmap='viridis')
-        axes[1].set_title('Back detector hits (world)'); axes[1].axis('equal')
-        plt.tight_layout(); plt.show()
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+        plt.subplots_adjust(wspace=0.3, hspace=0.3)
+
+        def get_limits(x, y, margin=0.5):
+            x_min, x_max = np.percentile(x, [0.5, 99.5])
+            y_min, y_max = np.percentile(y, [0.5, 99.5])
+            return (x_min - margin, x_max + margin), (y_min - margin, y_max + margin)
+
+        # Local coordinates
+        xlim, ylim = get_limits(self.x_front_local, self.y_front_local)
+        axes[0,0].hist2d(self.x_front_local, self.y_front_local, bins=100, cmap='viridis')
+        axes[0,0].set_title('Front detector hits (local)')
+        axes[0,0].set_aspect('equal', 'box')
+        axes[0,0].set_xlim(xlim)
+        axes[0,0].set_ylim(ylim)
+
+        xlim, ylim = get_limits(self.x_back_local, self.y_back_local)
+        axes[1,0].hist2d(self.x_back_local, self.y_back_local, bins=100, cmap='viridis')
+        axes[1,0].set_title('Back detector hits (local)')
+        axes[1,0].set_aspect('equal', 'box')
+        axes[1,0].set_xlim(xlim)
+        axes[1,0].set_ylim(ylim)
+
+        # World/beam coordinates
+        xlim, ylim = get_limits(self.x_front_world, self.y_front_world)
+        axes[0,1].hist2d(self.x_front_world, self.y_front_world, bins=100, cmap='viridis')
+        axes[0,1].set_title('Front detector hits (beam)')
+        axes[0,1].set_aspect('equal', 'box')
+        axes[0,1].set_xlim(xlim)
+        axes[0,1].set_ylim(ylim)
+
+        xlim, ylim = get_limits(self.x_back_world, self.y_back_world)
+        axes[1,1].hist2d(self.x_back_world, self.y_back_world, bins=100, cmap='viridis')
+        axes[1,1].set_title('Back detector hits (beam)')
+        axes[1,1].set_aspect('equal', 'box')
+        axes[1,1].set_xlim(xlim)
+        axes[1,1].set_ylim(ylim)
+
+
 
         # 2D histogram of cos(theta) vs phi
         plt.figure(figsize=(7, 5))
-        plt.hist2d(self.cos_theta, self.phi_deg, bins=[100, 100], cmap='plasma')
+        plt.hist2d(self.cos_theta, self.phi_deg, bins=[100, 100], cmap='viridis')
         plt.xlabel('cos(theta)')
         plt.ylabel('phi (rad)')
-        plt.title('cos(theta) vs phi (2D histogram)')
         plt.colorbar(label='Counts')
         plt.tight_layout()
         plt.show()
@@ -279,24 +298,26 @@ class PPACFissionSimulationSimple:
         Z_forward = np.where(np.array(self.initial_energy_forward) > np.array(self.initial_energy_backward), self.Z1, self.Z2)
         mask_40 = Z_forward == self.Z1
         mask_52 = Z_forward == self.Z2
+        # There is no variable x_front_hit defined in this context.
+        # If you want to filter by y coordinate of the front detector hit,
+        # use self.y_front_world or self.y_front_local as appropriate.
+        # For example, to only plot events where y_front_world > 0:
+
+        mask_ypos = abs(np.array(self.x_front_world)) >1e-6
 
         # Plot for Z=40
-        axes[0].scatter(np.array(self.cos_theta)[mask_40], np.array(self.loss_target_forward)[mask_40], s=0.01, alpha=0.5, label='Target (Z=40)', color='tab:blue')
-        axes[0].scatter(np.array(self.cos_theta)[mask_40], np.array(self.loss_backing_forward)[mask_40], s=0.01, alpha=0.5, label='Backing (Z=40)', color='tab:cyan')
-        axes[0].scatter(np.array(self.cos_theta)[mask_40], np.array(self.loss_gas_forward)[mask_40], s=0.01, alpha=0.5, label='Gas (Z=40)', color='tab:purple')
+        axes[0].scatter(np.array(self.cos_theta)[mask_40 & mask_ypos], np.array(self.loss_target_forward)[mask_40 & mask_ypos], s=0.01, alpha=0.5, label='Target (Z=40)', color='tab:blue')
+        axes[0].scatter(np.array(self.cos_theta)[mask_40 & mask_ypos], np.array(self.loss_backing_forward)[mask_40 & mask_ypos], s=0.01, alpha=0.5, label='Backing (Z=40)', color='tab:cyan')
+        axes[0].scatter(np.array(self.cos_theta)[mask_40 & mask_ypos], np.array(self.loss_gas_forward)[mask_40 & mask_ypos], s=0.01, alpha=0.5, label='Gas (Z=40)', color='tab:purple')
 
         # Plot for Z=52
-        axes[0].scatter(np.array(self.cos_theta)[mask_52], np.array(self.loss_target_forward)[mask_52], s=0.01, alpha=0.5, label='Target (Z=52)', color='tab:orange')
-        axes[0].scatter(np.array(self.cos_theta)[mask_52], np.array(self.loss_backing_forward)[mask_52], s=0.01, alpha=0.5, label='Backing (Z=52)', color='tab:olive')
-        axes[0].scatter(np.array(self.cos_theta)[mask_52], np.array(self.loss_gas_forward)[mask_52], s=0.01, alpha=0.5, label='Gas (Z=52)', color='tab:red')
+        axes[0].scatter(np.array(self.cos_theta)[mask_52 & mask_ypos], np.array(self.loss_target_forward)[mask_52 & mask_ypos], s=0.01, alpha=0.5, label='Target (Z=52)', color='tab:orange')
+        axes[0].scatter(np.array(self.cos_theta)[mask_52 & mask_ypos], np.array(self.loss_backing_forward)[mask_52 & mask_ypos], s=0.01, alpha=0.5, label='Backing (Z=52)', color='tab:olive')
+        axes[0].scatter(np.array(self.cos_theta)[mask_52 & mask_ypos], np.array(self.loss_gas_forward)[mask_52 & mask_ypos], s=0.01, alpha=0.5, label='Gas (Z=52)', color='tab:red')
 
         axes[0].set_xlabel('cos(theta)')
         axes[0].set_ylabel('Energy loss forward (MeV)')
-        axes[0].set_title('Forward fragment energy losses vs cos(theta)')
         axes[0].legend(markerscale=10, fontsize=8, ncol=2)
-    
-
-        
 
         # 2. Energy loss (backward) vs cos(theta)
         Z_backward = np.where(np.array(self.initial_energy_forward) > np.array(self.initial_energy_backward), self.Z2, self.Z1)
@@ -304,16 +325,15 @@ class PPACFissionSimulationSimple:
         mask_52_b = Z_backward == self.Z2
 
         # Plot for Z=40
-        axes[1].scatter(np.array(self.cos_theta)[mask_40_b], np.array(self.loss_target_backward)[mask_40_b], s=0.01, alpha=0.5, label='Target (Z=40)', color='tab:blue')
-        axes[1].scatter(np.array(self.cos_theta)[mask_40_b], np.array(self.loss_gas_backward)[mask_40_b], s=0.01, alpha=0.5, label='Gas (Z=40)', color='tab:purple')
+        axes[1].scatter(np.array(self.cos_theta)[mask_40_b & mask_ypos], np.array(self.loss_target_backward)[mask_40_b & mask_ypos], s=0.01, alpha=0.5, label='Target (Z=40)', color='tab:blue')
+        axes[1].scatter(np.array(self.cos_theta)[mask_40_b & mask_ypos], np.array(self.loss_gas_backward)[mask_40_b & mask_ypos], s=0.01, alpha=0.5, label='Gas (Z=40)', color='tab:purple')
 
         # Plot for Z=52
-        axes[1].scatter(np.array(self.cos_theta)[mask_52_b], np.array(self.loss_target_backward)[mask_52_b], s=0.01, alpha=0.5, label='Target (Z=52)', color='tab:orange')
-        axes[1].scatter(np.array(self.cos_theta)[mask_52_b], np.array(self.loss_gas_backward)[mask_52_b], s=0.01, alpha=0.5, label='Gas (Z=52)', color='tab:red')
+        axes[1].scatter(np.array(self.cos_theta)[mask_52_b & mask_ypos], np.array(self.loss_target_backward)[mask_52_b & mask_ypos], s=0.01, alpha=0.5, label='Target (Z=52)', color='tab:orange')
+        axes[1].scatter(np.array(self.cos_theta)[mask_52_b & mask_ypos], np.array(self.loss_gas_backward)[mask_52_b & mask_ypos], s=0.01, alpha=0.5, label='Gas (Z=52)', color='tab:red')
 
         axes[1].set_xlabel('cos(theta)')
         axes[1].set_ylabel('Energy loss backward (MeV)')
-        axes[1].set_title('Backward fragment energy losses vs cos(theta)')
         axes[1].legend(markerscale=10, fontsize=8, ncol=2)
         plt.tight_layout()
         plt.show()
@@ -353,7 +373,6 @@ class PPACFissionSimulationSimple:
             axes[0].hist(loss_forward[mask], bins=100, histtype='step', label=f'Total (Z={z})', color=color, linestyle='-.', linewidth=1.5, alpha=1.0)
 
         axes[0].set_ylabel('Counts')
-        axes[0].set_title('Forward fragment energy loss vs Z')
         axes[0].legend(fontsize=8, ncol=2)
 
         # Backward fragment
@@ -368,7 +387,6 @@ class PPACFissionSimulationSimple:
 
         axes[1].set_xlabel('Energy loss (MeV)')
         axes[1].set_ylabel('Counts')
-        axes[1].set_title('Backward fragment energy loss vs Z')
         axes[1].legend(fontsize=8, ncol=2)
 
         plt.tight_layout()
