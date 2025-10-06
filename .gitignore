@@ -4,4 +4,6 @@
 # Ignore output files
 *.pdf
 *.root
+catima*
+.DS_Store
 

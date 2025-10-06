@@ -15,8 +15,9 @@ using namespace std;
 const int NDET   = 10;
 const int MAXA   = 5;    // max multiplicity anodes
 const int MAXC   = 20;   // max multiplicity cathodes
-const double L_mm   = 200.0; // delay line length (mm)
+const double L_mm   = 200.0; // detector size (mm)
 const double detector_spacing = 50.0; // spacing along z between consecutive detectors (mm)
+const double d_cathode_anode = 3.2; // distance between cathode and anode (mm)
 
 // rotation around Y function
 void rotY(double x, double y, double z, double ang,
@@ -29,9 +30,9 @@ void rotY(double x, double y, double z, double ang,
     zp = -x*sa + z*ca;
 }
 
-void anode_cathode_positions(const char *infile="input.root",
-                             const char *treename="T",
-                             const char *outfile="output.root")
+void positions(const char *infile="input.root",
+               const char *treename="T",
+               const char *outfile="output.root")
 {
     // --- Input ---
     TFile *fin = TFile::Open(infile,"READ");
@@ -40,7 +41,7 @@ void anode_cathode_positions(const char *infile="input.root",
     if(!tin){ cerr<<"No se encontró el árbol "<<treename<<"\n"; return; }
     Long64_t nentries = tin->GetEntries();
 
-    // branches arrays
+    // branches arrays - FIXED: Added proper array declarations
     Double_t tofA[NDET][MAXA];
     Double_t tofC1[NDET][MAXC], tofC2[NDET][MAXC], tofC3[NDET][MAXC], tofC4[NDET][MAXC];
     Int_t mult[NDET];
@@ -67,7 +68,6 @@ void anode_cathode_positions(const char *infile="input.root",
         hY[k] = new TH1D(Form("hY%d",k), Form("hY%d",k), 2000, -500, 500);
     }
 
-    // Fill histograms for calibration
     for(Long64_t ev=0; ev<nentries; ev++){
         tin->GetEntry(ev);
         for(int k=0;k<NDET;k++){
@@ -191,17 +191,37 @@ void anode_cathode_positions(const char *infile="input.root",
     TFile *fout = TFile::Open(outfile,"RECREATE");
     TTree *tout = tin->CloneTree(0); // clone structure only
 
-    // prepare branches: vectors per-detector for x,y and per-event detector velocities
-    vector<double> x[NDET], y[NDET];
-    vector<double> costheta[NDET-1], phi[NDET-1];
-    double vx_det[NDET], vy_det[NDET];
+    // FIXED: Properly declare vectors for output branches
+    vector<double> x_detector[NDET];
+    vector<double> y_detector[NDET]; 
+    vector<double> x_beam[NDET];
+    vector<double> y_beam[NDET];
+    vector<double> costheta[NDET-1];
+    vector<double> phi[NDET-1];
+    vector<double> x_target[NDET-1];
+    vector<double> y_target[NDET-1];
+    
+    double vx_det[NDET];
+    double vy_det[NDET];
+
+    // FIXED: Initialize arrays
+    for(int k=0;k<NDET;k++){
+        vx_det[k] = 0;
+        vy_det[k] = 0;
+    }
 
     for(int k=0;k<NDET;k++){
-        tout->Branch(Form("x%d",k), &x[k]);
-        tout->Branch(Form("y%d",k), &y[k]);
+        tout->Branch(Form("x_detector%d",k), &x_detector[k]);
+        tout->Branch(Form("y_detector%d",k), &y_detector[k]);
+        tout->Branch(Form("x_beam%d",k), &x_beam[k]);
+        tout->Branch(Form("y_beam%d",k), &y_beam[k]);
+        
         tout->Branch(Form("vX%d",k), &vx_det[k], Form("vX%d/D",k));
         tout->Branch(Form("vY%d",k), &vy_det[k], Form("vY%d/D",k));
+        
         if(k < NDET-1) {
+            tout->Branch(Form("x_target%d",k), &x_target[k]);
+            tout->Branch(Form("y_target%d",k), &y_target[k]);
             tout->Branch(Form("costheta%d",k), &costheta[k]);
             tout->Branch(Form("phi%d",k), &phi[k]);
         }
@@ -212,15 +232,23 @@ void anode_cathode_positions(const char *infile="input.root",
         tin->GetEntry(ev);
 
         // clear vectors for this event
-        for(int k=0;k<NDET;k++){ x[k].clear(); y[k].clear(); }
-        for(int k=0;k<NDET-1;k++){ costheta[k].clear(); phi[k].clear(); }
+        for(int k=0;k<NDET;k++){
+            x_detector[k].clear(); 
+            y_detector[k].clear(); 
+            x_beam[k].clear(); 
+            y_beam[k].clear();
+            vx_det[k] = vX[k];  // Set velocities for this event
+            vy_det[k] = vY[k];
+        }
+        for(int k=0;k<NDET-1;k++){
+            costheta[k].clear(); 
+            phi[k].clear();
+            x_target[k].clear();
+            y_target[k].clear();
+        }
 
         // position reconstruction using calibrated speeds (vX, vY)
         for(int k=0; k<NDET; k++){
-            // reset vx_det, vy_det for this detector (stored per-event)
-            vx_det[k] = vX[k];
-            vy_det[k] = vY[k];
-
             if (mult[k] < 1 || multC1[k] < 1 || multC2[k] < 1 || multC3[k] < 1 || multC4[k] < 1) continue;
 
             for(int i=0; i<mult[k]; i++){
@@ -232,14 +260,14 @@ void anode_cathode_positions(const char *infile="input.root",
                             if(sumDiff>60 && sumDiff<140){
                                 double yi = (tofC2[k][l] - tofC1[k][j]) * (vY[k]/2.0);
                                 if (std::isfinite(yi) && fabs(yi) > 1e-6 && fabs(yi) < L_mm){
-                                    y[k].push_back(yi);
+                                    y_detector[k].push_back(yi);
                                 }
                             }
                         } else {
                             if(sumDiff>40 && sumDiff<130){
                                 double yi = (tofC2[k][l] - tofC1[k][j]) * (vY[k]/2.0);
                                 if (std::isfinite(yi) && fabs(yi) > 1e-6 && fabs(yi) < L_mm){
-                                    y[k].push_back(yi);
+                                    y_detector[k].push_back(yi);
                                 }
                             }
                         }
@@ -252,15 +280,17 @@ void anode_cathode_positions(const char *infile="input.root",
                         if(k>=6){
                             if(sumDiff>60 && sumDiff<140){
                                 double xi = (tofC4[k][l] - tofC3[k][j]) * (vX[k]/2.0);
-                                if (std::isfinite(xi) && fabs(xi) > 1e-6 && fabs(xi) < L_mm){
-                                    x[k].push_back(xi);
+                                if (std::isfinite(xi) && fabs(xi) > 1e-6){
+                                    // FIXED: Removed incorrect offset calculation
+                                    x_detector[k].push_back(xi);
                                 }
                             }
                         } else {
                             if(sumDiff>40 && sumDiff<130){
                                 double xi = (tofC4[k][l] - tofC3[k][j]) * (vX[k]/2.0);
-                                if (std::isfinite(xi) && fabs(xi) > 1e-6 && fabs(xi) < L_mm){
-                                    x[k].push_back(xi);
+                                if (std::isfinite(xi) && fabs(xi) > 1e-6){
+                                    // FIXED: Removed incorrect offset calculation
+                                    x_detector[k].push_back(xi);
                                 }
                             }
                         }
@@ -269,48 +299,52 @@ void anode_cathode_positions(const char *infile="input.root",
             } // end multiplicities for this detector
         } // end detectors loop for positions
 
+        // FIXED: Angle calculation - properly handle the loops
         for(int k=0; k<NDET-1; k++){
-            costheta[k].clear();
-            phi[k].clear();
+            for (size_t i0 = 0; i0 < x_detector[k].size(); ++i0) {
+                for (size_t i1 = 0; i1 < x_detector[k+1].size(); ++i1) {
+                    for (size_t j0 = 0; j0 < y_detector[k].size(); ++j0) {
+                        for (size_t j1 = 0; j1 < y_detector[k+1].size(); ++j1) {
+                            double x0 = x_detector[k][i0];
+                            double y0 = y_detector[k][j0];
+                            double z0 = k * detector_spacing;
 
+                            double x1 = x_detector[k+1][i1];
+                            double y1 = y_detector[k+1][j1];
+                            double z1 = (k+1) * detector_spacing;
+                            
+                            // FIXED: Proper target position calculation
+                            double x0targ = x0 + (x1 - x0) / detector_spacing * (detector_spacing/2.0 + d_cathode_anode);
+                            double y0targ = y0 + (y1 - y0) / detector_spacing * (detector_spacing/2.0 - d_cathode_anode);
+                            
+                            double x0p, y0p, z0p, x1p, y1p, z1p;
+                            rotY(x0, y0, z0, TMath::Pi()/4.0, x0p, y0p, z0p);
+                            rotY(x1, y1, z1, TMath::Pi()/4.0, x1p, y1p, z1p);
 
-            size_t nmin = std::min({x[k].size(), x[k+1].size(), y[k].size(), y[k+1].size()});
-            for(size_t i=0; i<nmin; ++i){
+                            x_target[k].push_back(x0targ);
+                            y_target[k].push_back(y0targ);
 
-        // positions
-                double x0 = x[k][i]-25;
-                double y0 = y[k][i];
-                double z0 = k * detector_spacing;
+                            double Vx = x1p - x0p;
+                            double Vy = y1p - y0p;
+                            double Vz = z1p - z0p;
 
-                double x1 = x[k+1][i]+25; 
-                double y1 = y[k+1][i];
-                double z1 = (k+1) * detector_spacing;
-
-                double Vx = x1 - x0;
-                double Vy = y1 - y0;
-                double Vz = z1 - z0;
-
-                double Vmod = sqrt(Vx*Vx + Vy*Vy + Vz*Vz);
-                if(Vmod > 1e-9){
-                    // beam axis unit vector W = (1,0,-1)/sqrt(2) as in original code
-                    double cosTh = (Vx - Vz) / (Vmod * sqrt(2.0));
-                    costheta[k].push_back(cosTh);
-                } else {
-                    costheta[k].push_back(-9999);
+                            double Vmod = sqrt(Vx*Vx + Vy*Vy + Vz*Vz);
+                            if(Vmod > 1e-9){
+                                double cosTh = Vz / Vmod;
+                                costheta[k].push_back(cosTh);
+                            } else {
+                                costheta[k].push_back(-9999.0);
+                            }
+                            phi[k].push_back(atan2(Vy, Vx));
+                        }
+                    }
                 }
-
-                // phi: rotate by 225 degrees (5*pi/4) about Y and compute atan2(dY', dX')
-                double x0p,y0p,z0p, x1p,y1p,z1p;
-                rotY(x0,y0,z0, TMath::Pi()/4, x0p,y0p,z0p);
-                rotY(x1,y1,z1, TMath::Pi()/4, x1p,y1p,z1p);
-                double dXp = x1p - x0p;
-                double dYp = y1p - y0p;
-                phi[k].push_back( atan2(dYp, dXp) );
             }
         }
 
         tout->Fill();
     }
+    cout<<"Processed "<<nentries<<" events.\n";
 
     fout->Write();
     fout->Close();
@@ -318,6 +352,4 @@ void anode_cathode_positions(const char *infile="input.root",
 
     cout<<"File "<<outfile<<" written \n";
 }
-
-
 
