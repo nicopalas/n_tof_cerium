@@ -28,12 +28,12 @@ Double_t l=185.0; // flight path in meters
 
 void gamma_flash(int run_number) {
 
-    std::string filename = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/coincidences_raw/Threshold=400/output_run" + std::to_string(run_number) + ".root";
+    std::string filename = "/Users/nico/Desktop/Tese/Results/anodes/coincidences_raw/threshold_400/output_run" + std::to_string(run_number) + ".root";
     TFile *file = TFile::Open(filename.c_str()) ;//we need raw data for the pickup
     TTree *intree = (TTree*)file->Get("nTOF_coincidences");
 
     // Open the raw run118560.root file and load the PKUP tree
-    std::string filename2 = "/nucl_lustre/n_tof_INTC_P_665/DATA/run" + std::to_string(run_number) + ".root";
+    std::string filename2 = "/Users/nico/Desktop/Tese/n_TOF_data/run" + std::to_string(run_number) + ".root";
     TFile *file2 = TFile::Open(filename2.c_str());//we need raw data for the pickup
     TTree *pkupTree = (TTree*)file2->Get("PKUP");
     pkupTree->SetBranchStatus("*", 0); // turn off all branches
@@ -103,7 +103,7 @@ void gamma_flash(int run_number) {
 
     Long64_t nentries = intree->GetEntries(); // getting the number of entries to loop over them
     Long64_t npkupEntries = pkupTree->GetEntries();
-    std::string out_file = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/gamma_flash/threshold=400/gamma_flash_" + std::to_string(run_number) + ".root";
+    std::string out_file = "/Users/nico/Desktop/Tese/Results/anodes/gamma_flash/gamma_flash_" + std::to_string(run_number) + ".root";
     TFile *outfile = new TFile(out_file.c_str(), "RECREATE");
     TTree *outtree = new TTree("coincidences", "Coincidences Tree");
     outtree->Branch("RunNumber", &RunNumber, "RunNumber/I");
@@ -112,6 +112,16 @@ void gamma_flash(int run_number) {
     outtree->Branch("time", &eventTime, "time/I");
     outtree->Branch("psTime", &psTime, "psTime/D");
     outtree->Branch("PulseIntensity", &PulseIntensity, "PulseIntensity/F");
+    outtree->Branch("mult0", &mult0, "mult0/I");
+    outtree->Branch("mult1", &mult1, "mult1/I");
+    outtree->Branch("mult2", &mult2, "mult2/I");
+    outtree->Branch("mult3", &mult3, "mult3/I");
+    outtree->Branch("mult4", &mult4, "mult4/I");
+    outtree->Branch("mult5", &mult5, "mult5/I");
+    outtree->Branch("mult6", &mult6, "mult6/I");
+    outtree->Branch("mult7", &mult7, "mult7/I");
+    outtree->Branch("mult8", &mult8, "mult8/I");
+    outtree->Branch("mult9", &mult9, "mult9/I");
     outtree->Branch("amp0", amp0, "amp0[mult0]/F");
     outtree->Branch("amp1", amp1, "amp1[mult1]/F");
     outtree->Branch("amp2", amp2, "amp2[mult2]/F");
@@ -123,16 +133,6 @@ void gamma_flash(int run_number) {
     outtree->Branch("amp8", amp8, "amp8[mult8]/F");
     outtree->Branch("amp9", amp9, "amp9[mult9]/F");
     outtree->Branch("detn", detn_all, "detn[10]/I");
-    outtree->Branch("mult0", &mult0, "mult0/I");
-    outtree->Branch("mult1", &mult1, "mult1/I");
-    outtree->Branch("mult2", &mult2, "mult2/I");
-    outtree->Branch("mult3", &mult3, "mult3/I");
-    outtree->Branch("mult4", &mult4, "mult4/I");
-    outtree->Branch("mult5", &mult5, "mult5/I");
-    outtree->Branch("mult6", &mult6, "mult6/I");
-    outtree->Branch("mult7", &mult7, "mult7/I");
-    outtree->Branch("mult8", &mult8, "mult8/I");
-    outtree->Branch("mult9", &mult9, "mult9/I");
     outtree->Branch("mult", &mult, "mult/I");
     outtree->Branch("gamma_flash0", gamma_flash0, "gamma_flash0[mult0]/D");
     outtree->Branch("gamma_flash1", gamma_flash1, "gamma_flash1[mult1]/D");
@@ -163,8 +163,8 @@ void gamma_flash(int run_number) {
                         for(int k = 0; k < mult7; k++){gamma_flash7[k] = tof7[k] - tof;}
                         for(int k = 0; k < mult8; k++){gamma_flash8[k] = tof8[k] - tof;}
                         for(int k = 0; k < mult9; k++){gamma_flash9[k] = tof9[k] - tof;}
-                        outtree->Fill();      // fill only if the conditions are met to avoid unnecessary data
-			std::cout << outtree->GetEntries() << std::endl;
+                        outtree->Fill(); 
+                        std::cout << "Filled entry " << outtree->GetEntries() << std::endl;
 
                         }
                 }
