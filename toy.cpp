@@ -123,7 +123,7 @@ void toy(int run_number, float threshold, double time_for_coincidence) {
         s.tof -= it->second; // tof correction by subtracting tof of the PKUP
 
         if (s.detn < 7) s.tof += 15; // local correction (due to different time references between DAQ systems). must be corrected strictly with the gamma flash
-        if (s.amp > threshold) signals.push_back(s); // only keep signals above threshold to avoid unnecessary storage
+        if (std::abs(s.amp) > threshold && s.tof > -900) signals.push_back(s); // only keep signals above threshold to avoid unnecessary storage
     }
 
     std::cout << "INFO: Signals loaded and TOF corrected: " << signals.size() << std::endl;
@@ -146,11 +146,11 @@ void toy(int run_number, float threshold, double time_for_coincidence) {
     std::vector<std::vector<Signal>> configurations;
 
     for (size_t i = 0; i < signals.size(); ++i) {
-        if (signals[i].used || signals[i].amp <= threshold) continue;
+        if (signals[i].used || std::abs(signals[i].amp) <= threshold) continue;
         std::vector<Signal> coincidence;
 
         for (size_t j = i + 1; j < signals.size(); ++j) {
-            if (signals[j].amp <= threshold) continue;
+            if (std::abs(signals[j].amp) <= threshold) continue;
             // matching criteria in beam-related parameters
             if (signals[j].RunNumber != signals[i].RunNumber ||
                 signals[j].time != signals[i].time ||
@@ -179,7 +179,7 @@ void toy(int run_number, float threshold, double time_for_coincidence) {
     // lonely coincidences merging
     int merged_signals = 0;
     for (auto &sig : signals) {
-        if (sig.used || sig.amp <= threshold) continue;
+        if (sig.used || std::abs(sig.amp) <= threshold) continue;
         bool merged = false;
         for (auto &conf : configurations) {
             for (auto &c_sig : conf) {
