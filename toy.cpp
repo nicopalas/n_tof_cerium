@@ -16,7 +16,7 @@ struct Signal {
 };
 
 void toy(int run_number, float threshold, double time_for_coincidence) {
-    
+
     std::cout << "INFO: Processing run_number " << run_number << std::endl;
 
     // --- Open ROOT file ---
@@ -287,4 +287,117 @@ void toy(int run_number, float threshold, double time_for_coincidence) {
 
     std::cout << "INFO: Merge operations: " << merge_operations << std::endl;
     std::cout << "INFO: Final number of configurations: " << configurations.size() << std::endl;
+
+    std::string outname = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/coincidences_raw/toy/output_run" + std::to_string(run_number) + ".root";
+    TFile* outputFile = TFile::Open(outname.c_str(), "RECREATE");
+    if (!outputFile || outputFile->IsZombie()) {
+        std::cerr << "ERROR: Could not create output file " << outname << std::endl;
+        file->Close();
+        return;
+    }
+
+    TTree *outtree = new TTree("nTOF_coincidences","nTOF_coincidences");
+
+    Int_t mult0=0,mult1=0,mult2=0,mult3=0,mult4=0,mult5=0,mult6=0,mult7=0,mult8=0,mult9=0;
+    Double_t tof0[20],tof1[20],tof2[20],tof3[20],tof4[20],tof5[20],tof6[20],tof7[20],tof8[20],tof9[20];
+    Float_t amp0[20],amp1[20],amp2[20],amp3[20],amp4[20],amp5[20],amp6[20],amp7[20],amp8[20],amp9[20];
+    Int_t detn_all[10] = {0};
+    Int_t RunNumber, time, BunchNumber, PSpulse;
+    Double_t psTime;
+    Float_t PulseIntensity;
+    Int_t mult;
+
+    outtree->Branch("RunNumber", &RunNumber, "RunNumber/I");
+    outtree->Branch("time",&time,"time/I");
+    outtree->Branch("psTime",&psTime,"psTime/D");
+    outtree->Branch("BunchNumber", &BunchNumber, "BunchNumber/I");
+    outtree->Branch("PSpulse", &PSpulse, "PSpulse/I");
+    outtree->Branch("PulseIntensity", &PulseIntensity, "PulseIntensity/F");
+    outtree->Branch("mult",&mult,"mult/I");
+    outtree->Branch("mult0",&mult0,"mult0/I");
+    outtree->Branch("mult1",&mult1,"mult1/I");
+    outtree->Branch("mult2",&mult2,"mult2/I");
+    outtree->Branch("mult3",&mult3,"mult3/I");
+    outtree->Branch("mult4",&mult4,"mult4/I");
+    outtree->Branch("mult5",&mult5,"mult5/I");
+    outtree->Branch("mult6",&mult6,"mult6/I");
+    outtree->Branch("mult7",&mult7,"mult7/I");
+    outtree->Branch("mult8",&mult8,"mult8/I");
+    outtree->Branch("mult9",&mult9,"mult9/I");
+
+    outtree->Branch("tof0",tof0,"tof0[mult0]/D");
+    outtree->Branch("tof1",tof1,"tof1[mult1]/D");
+    outtree->Branch("tof2",tof2,"tof2[mult2]/D");
+    outtree->Branch("tof3",tof3,"tof3[mult3]/D");
+    outtree->Branch("tof4",tof4,"tof4[mult4]/D");
+    outtree->Branch("tof5",tof5,"tof5[mult5]/D");
+    outtree->Branch("tof6",tof6,"tof6[mult6]/D");
+    outtree->Branch("tof7",tof7,"tof7[mult7]/D");
+    outtree->Branch("tof8",tof8,"tof8[mult8]/D");
+    outtree->Branch("tof9",tof9,"tof9[mult9]/D");
+
+    outtree->Branch("amp0",amp0,"amp0[mult0]/F");
+    outtree->Branch("amp1",amp1,"amp1[mult1]/F");
+    outtree->Branch("amp2",amp2,"amp2[mult2]/F");
+    outtree->Branch("amp3",amp3,"amp3[mult3]/F");
+    outtree->Branch("amp4",amp4,"amp4[mult4]/F");
+    outtree->Branch("amp5",amp5,"amp5[mult5]/F");
+    outtree->Branch("amp6",amp6,"amp6[mult6]/F");
+    outtree->Branch("amp7",amp7,"amp7[mult7]/F");
+    outtree->Branch("amp8",amp8,"amp8[mult8]/F");
+    outtree->Branch("amp9",amp9,"amp9[mult9]/F");
+
+    outtree->Branch("detn_all",detn_all,"detn_all[10]/I");
+
+    // filling the output tree
+    for (auto &conf : configurations) {
+        mult = conf.size();
+        RunNumber = conf[0].RunNumber;
+        time = conf[0].time;
+        psTime = conf[0].psTime;
+        BunchNumber = conf[0].BunchNumber;
+        PSpulse = conf[0].PSpulse;
+        PulseIntensity = conf[0].PulseIntensity;
+
+        for (auto &sig : conf) {
+            int d = sig.detn;
+            if (d < 0 || d > 9) {
+                std::cerr << "WARNING: Invalid detector number " << d << " — skipping signal." << std::endl;
+                continue;
+            }
+
+            int mults[10] = {mult0,mult1,mult2,mult3,mult4,mult5,mult6,mult7,mult8,mult9};
+            if (mults[d] >= 20) {
+                std::cerr << "WARNING: Detector " << d << " multiplicity > 20, skipping signal." << std::endl;
+                continue;
+            }
+
+            switch(d) {
+                case 0: tof0[mult0]=sig.tof; amp0[mult0]=sig.amp; mult0++; break;
+                case 1: tof1[mult1]=sig.tof; amp1[mult1]=sig.amp; mult1++; break;
+                case 2: tof2[mult2]=sig.tof; amp2[mult2]=sig.amp; mult2++; break;
+                case 3: tof3[mult3]=sig.tof; amp3[mult3]=sig.amp; mult3++; break;
+                case 4: tof4[mult4]=sig.tof; amp4[mult4]=sig.amp; mult4++; break;
+                case 5: tof5[mult5]=sig.tof; amp5[mult5]=sig.amp; mult5++; break;
+                case 6: tof6[mult6]=sig.tof; amp6[mult6]=sig.amp; mult6++; break;
+                case 7: tof7[mult7]=sig.tof; amp7[mult7]=sig.amp; mult7++; break;
+                case 8: tof8[mult8]=sig.tof; amp8[mult8]=sig.amp; mult8++; break;
+                case 9: tof9[mult9]=sig.tof; amp9[mult9]=sig.amp; mult9++; break;
+            }
+            detn_all[d]++;
+        }
+
+        outtree->Fill();
+
+        // reset multiplicities
+        mult0=mult1=mult2=mult3=mult4=mult5=mult6=mult7=mult8=mult9=0;
+        mult=0;
+        for (int i=0; i<10; ++i) detn_all[i]=0;
+    }
+
+    outputFile->Write();
+    outputFile->Close();
+    file->Close();
+
+    std::cout << "INFO: Finished processing run_number " << run_number << std::endl;
 }
