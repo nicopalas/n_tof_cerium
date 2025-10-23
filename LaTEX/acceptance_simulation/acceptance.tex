@@ -1,0 +1,402 @@
+\documentclass{article}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+
+\title{Acceptance Simulation}
+\author{Nicolás Sánchez}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+In this document, a brief overview of the acceptance of the setup will be provided. How can we perform the simulation?
+ To make a simple test, we can use a Monte Carlo approach to estimate the number of accepted events.
+ This can be done by following the steps below.
+ \begin{itemize}
+ \item Parametrize the detector. It will be made of 2 20x20 $\text{cm}^2$ planes, tilted 45 degrees with respect to the beam, one located at $z=-2.5$ and the other at $z=2.5$ cm (in the detector reference frame).
+ \item We will generate the fission fragments in the target, that will be a 3D object with 4 cm radius and a thickness that will depend on the material (Uranium or Cerium dioxide).
+ \item The fission fragments will be generated isotropically in the target volume.
+ \item The fission fragments will be generated with a determined energy distribution, given by GEF simulation in the case of Uranium and, for Cerium fragments, computed with the Coulomb repulsion between 2 spheroids of charges $Z_1$ and $Z_2$ with deformation $\beta_1$ and $\beta_2$.
+ \item Then, we will compute the trajectory of the fission fragments in the detector, taking into account the energy loss in the target, backing, gas and detector materials. The backing will only affect the fragment emitted forward.
+ \item Finally, we will compute the acceptance of the detector, which will be defined as the fraction of fission fragments that intersect within the detector planes.
+ \end{itemize}
+
+\section{Simulation of Cerium fission fragments}
+The simulation of the Cerium fission fragments will be done distinguishing between 2 cases:
+\begin{itemize}
+\item The fission is symmetric, which means that the two fragments have almost the same mass and charge. In this case, it is easy to compute the mass and charge of the fragments, since we only have to generate a random number from a gaussian distribution, i.e. $Z_1 \sim \mathcal{N}(\frac{Z_{CN}}{2},4)$.
+In this case, the energy of the other fragment can be computed by $Z_2=Z_{CN}-Z_1$. For the masses, we will use the UCD condition, which states that the mass-charge ratio of the compound nucleus is equal to the mass-charge ratio of the fragments, i.e. $\frac{A_{CN}}{Z_{CN}}=\frac{A_1}{Z_1}=\frac{A_2}{Z_2}$.
+Thus, we can obtain the masses of the fragments as $A_1=\frac{Z_1 A_{CN}}{Z_{CN}}$ and $A_2=A_{CN}-A_1$. The energy of the fragments can be computed using the Coulomb repulsion between two spheroids, which is given by:
+\begin{equation}
+TKE (Z_1, Z_2, A_1, A_2)= \frac{1.44 Z_1 Z_2}{R}; 
+\end{equation}
+where \footnote{the 1.44 is a change of units to compute the TKE in eV, so the formula is basically a coulomb repulsion between the fragments, which is the cause of the acceleration of the fragments.}
+\begin{equation}
+R=1.2 (A_1^{1/3}(1+\frac{2}{3} \beta)+A_2^{1/3}(1+\frac{2}{3} \beta)+d);
+\end{equation}
+being $\beta$ the deformation, which we will take as 0.6 \footnote{Why are we taking this parameter as a constant? Because fixing the neck distance or the deformation does not affect the result since they are correlated, so we can fix one while varying the other, and the result should remain basically unchanged.},and $d$ the distance between the two fragments (usually of the order of 1 fm).
+This formula gives us the total kinetic energy of the fragments, which we can use to compute the energy of each fragment. To make it more realistic, we will assign to this value a distribution centered in this value with a standard deviation of 10 MeV (\cite{Wagemans}).
+
+\item The fission is asymmetric, which means that the two fragments tend to have different charges and masses. In this case, we will assume that the fission is driven by the $Z_1=34$ shell. Thus, we will generate the charge of the first fragment as $Z_1 \sim \mathcal{N}(34,2)$, and the second fragment will be computed as $Z_2=Z_{CN}-Z_1$. The masses will be computed using the UCD condition as in the symmetric case. The energy of the fragments can be computed using the same formula as in the symmetric case.
+\end{itemize}
+How do we compute the $\beta$ and $d$ parameters? Here, we are going to use the Viola systematics, which tells us that the energy released in the fission process can be written as
+\begin{equation}
+    \text{TKE} = 0.1189 \frac{Z^2}{A^{1/3}} + 7.3 \quad \text{(MeV)}.
+\end{equation}
+This formula gives us the total kinetic energy of the fragments, which we can use to compute the energy of each fragment
+
+\begin{align}
+KE_{HFF}= \frac{\text{TKE}} {1+\frac{A_{HFF}}{A_{LFF}}} \\
+KE_{LFF}= \frac{\text{TKE}} {1+\frac{A_{LFF}}{A_{HFF}}}
+\end{align}
+where $HFF$ and $LFF$ stand for Heavy Fission Fragment and Light Fission Fragment respectively.
+Then, we can compute the parameters $\beta$ and $d$ by adjusting the TKE formula given above (for $Z_1=Z_2=Z_{CN}/2$ and $A_1=A_2=A_{CN}/2$) to the result expected by the Viola systematics. We will fix $d$ with this approach. Regarding $\beta$, we will take a constant value of 0.6, which is a reasonable value for the deformation of the fragments at scission (and, as mentioned earlier, this value is connected with $d$ so fixing one automatically fixes the other).
+Note also here that we did not take into account the neutron evaporation, which will affect the mass of the fragments but not their charge. This is a detail that can be improved in the future.
+
+\section{Simulation of Uranium fission fragments}
+The simulation of the Uranium fission fragments will be done using the GEF code \cite{GEF}, which provides us with the masses (after neutron evaporation), charge and energy distributions of the fission fragments. We will make the simulation using neutron energies from 3 up to 40 MeV, thus covering a wide range of fission dynamics. We will obtain the distributions of mass, charge and kinetic energy of the fragments from GEF, and then we will use these events to compute the acceptance of the setup.
+The procedure will allow us to compare the results with the experimental data obtained in the experiment.
+\section{Results}
+All energy losses were computed using CATIMA, which is a code that computes the energy loss of ions in different materials using SRIM tables (as LISE++) \cite{Ziegler} for energies below 10 MeV/u. 
+The materials used in the simulation were:
+\begin{itemize}
+\item Target: UO$_2$ or CeO$_2$, with thickesses of 0.3 and 1.2 mg/cm$^2$, respectively.
+\item Backing: Al, 2.5 $\mu$m.
+\item Gas: C3F8, 4 mbar, 3.2 mm between anode and cathodes and 2.5 cm between target and detectors.
+\item Detector: 3 windows of Mylar, 0.5 mg/cm$^2$ each. The size of the detector was 20x20 cm$^2$.
+\item The distance between the target and the first detector was 2.5 cm, and the distance between the two detectors was 5 cm. The distance between anode and cathode was 3.2 mm and the distance traversed in target depends on the fission point.
+\item The distance traveled depends on the angle of emission, so the energy loss will also depend on this angle, and in each step we will compute the time taken to traverse it in order to obtain the distribution of time differences between both anodes.
+\end{itemize}
+
+\subsection {Cerium fission fragments}
+
+\subsubsection*{Symmetric fission}
+We will begin by showing the charge distribution of the accepted fragments, which is shown in figure \ref{fig:charge_sym}. As expected, the distribution is centered around $Z=29$, but the effect of the backing makes that the charge measured in the forward detector tends to be lower, since heavy fragments are less likely to reach the detector.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/charge_symmetric_cerium.pdf}
+    \caption{Charge distribution of the fragments for symmetric fission of Cerium.}
+    \label{fig:charge_sym}
+\end{figure}
+The energy distribution of the fragments is shown in figures \ref{fig:energy_sym_back} and \ref{fig:energy_sym_forw}. We can see an almost linear behaviour for the backward detector whereas for the forward one, the distribution is broader, which can be explained by the bigger amount of layers traversed, thus a bigger energy loss and straggling.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/energies_backward_cerium_symmetric.pdf}
+    \caption{Energy distribution of the backward-emitted fragments for symmetric fission of Cerium.}
+    \label{fig:energy_sym_back}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/energies_forward_cerium_symmetric.pdf}
+    \caption{Energy distribution of the forward-emitted fragments for symmetric fission of Cerium.}
+    \label{fig:energy_sym_forw}
+\end{figure}
+
+Another aspect worth studying is the contribution to the energy loss of each material. This can be done for the backward and forward emitted fragments, being the main difference that the forward one has a backing contribution, in addition to the target and gas contributions. The results are shown in figures \ref{fig:energy_loss_back_sym} and \ref{fig:energy_loss_forw_sym}. 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/backward_losses_cerium_symmetric.pdf}
+    \caption{Energy loss contribution of each material for the backward-emitted fragments for symmetric fission of Cerium.}
+    \label{fig:energy_loss_back_sym}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/forward_losses_cerium_symmetric.pdf}
+    \caption{Energy loss contribution of each material for the forward-emitted fragments for symmetric fission of Cerium.}
+    \label{fig:energy_loss_forw_sym}
+\end{figure}
+Once we have the energy distribution, we can see the position distribution of the impact points in the detectors. In order to analyze the results, we have to take into account two possible reference frames: the detector frame (local), and the beam reference frame (global). Thus, the results are attached in the figures below. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/position_detector_cerium_symmetric.pdf}
+    \caption{Position distribution of the impact points in the detectors for symmetric fission of Cerium in the detector frame.}
+    \label{fig:pos_det_sym}
+\end{figure}
+
+\begin{figure}[H] 
+    \centering
+    \includegraphics[width=\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/position_global_cerium_symmetric.pdf}
+    \caption{Position distribution of the impact points in the detectors for symmetric fission of Cerium in the global frame.}
+    \label{fig:pos_glob_sym}
+\end{figure}
+
+What we can see from figures \ref{fig:pos_det_sym} and \ref{fig:pos_glob_sym} is that, in the beam frame, the X-coordinate range is modified, since in this reference system the detector does not lie in a constant Z plane. 
+In addition, in the beam frame we can see that the emission is not in the center of the detector, since the distribution is centered around (0,2) and (0,-2) cm for the forward and backward detectors respectively. 
+Another interesting aspect to study is the efficiency of detection, which is defined as the ratio between the number of accepted events (those that hit both detectors) and the total number of generated events. The results are shown in figure \ref{fig:eff_sym}. What we can see is that the efficiency of detection is around 42 $\%$, allowing us to reach polar angles beyond 100 degrees.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/efficiency_cerium_symmetric.pdf}
+    \caption{Efficiency of detection for symmetric fission of Cerium.}
+    \label{fig:eff_sym}
+\end{figure}
+
+Finally, we can compute the time difference between both anodes, which is shown in figure \ref{fig:time_diff_sym}. The time difference is computed as $t_{1}-t_{0}$, so a positive value means that the forward-emitted fragment arrives later than the backward-emitted one.
+We can also see a tail in the left part of the plot (negative time differences), which comes mainly from events where the backward-emitted fragment has a very low energy (heavy fission fragment) and thus takes a long time to reach the detector. 
+This tail is not in the right part because for the forward-emitted fragments, the heavy fragments do not reach the detector in such cases because of the backing. 
+Possible sources of uncertainty or discrepancy are the fact that in the real simulation our time difference comes from the anode signal. This signal can be triggered by electrons coming from both cathodes, each one traveling a different distance thus affecting the time difference.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/time_difference_cerium_symmetric.pdf}
+    \caption{Time difference between both anodes for symmetric fission of Cerium.}
+    \label{fig:time_diff_sym}
+\end{figure}
+Furthermore, we can study the time difference versus the angle of emission (in the beam frame), and versus the sum of energy deposited in the gas volume in between the anode-cathode region.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_vs_theta.pdf}
+    \caption{Time difference between both anodes versus the angle of emission for symmetric fission of Cerium.}
+    \label{fig:time_diff_costheta_sym}
+\end{figure}
+In figure \ref{fig:time_diff_costheta_sym}, we can see that the number of events is bigger in the region of $\theta \sim 45^{\circ}$, which is expected because is the normal of both target and backing, thus in this emission angle the distance traversed is minimum. In addition, we can see that we cover a broad angular region, which is essentially the reason why the PPACs were tilted for this experiment.
+Finally, we can see the time difference versus the sum of energy deposited in the gas volume of the forward detector, which is shown in figure \ref{fig:time_diff_energy_sym}. In this case, what we can see is that the tail for negative time differences corresponds to larger depositions in the gas between cathodes and anode for the forward-located detector. 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_sum_cathode_forward.pdf}
+    \caption{Time difference between both anodes versus the sum of energy deposited in the gas (forward fragment) for symmetric fission of Cerium.}
+    \label{fig:time_diff_energy_sym}
+\end{figure}
+In order to see where this events stem from, we can make a plot of the time difference against the initial energy of the forward-emitted fragment, and identify the events with a negative time difference to those with bigger initial energies (light fission fragments) than those of the left tail.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/difftof_vs_initial_energy_f_cerium_symmetric.pdf}
+    \caption{Time difference between both anodes versus the initial energy of the forward-emitted fragment for symmetric fission of Cerium.}
+    \label{fig:time_diff_initial_energy_sym}
+\end{figure}
+
+\subsubsection*{Asymmetric fission}
+We will now show the results for the asymmetric fission of Cerium. The charge distribution of the accepted fragments is shown in figure \ref{fig:charge_asym}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/charge_distribution_asymmetric.pdf}
+    \caption{Charge distribution of the fragments for asymmetric fission of Cerium.}
+    \label{fig:charge_asym}
+\end{figure}
+As mentioned earlier, in this case we are assuming that the fission process is driven by the $Z=34$ shell, but the results show a different distribution depending on the detector involved. The detector located backward tends to detect more heavy fragments than the forward one, since the heavy fragment has a lower kinetic energy and thus a lower probability of overcoming the backing with sufficient energy to reach the detector area. Regardless, both distributions are quite broad, showing a wide range of accepted charges.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/time_difference_cerium_asymmetric.pdf}
+    \caption{Time difference between both anodes for asymmetric fission of Cerium.}
+    \label{fig:time_diff_asym}
+\end{figure}
+If we look at the time difference versus the angle of emission, we can see that the distribution has two clearly distinguished peaks, as shown in figure \ref{fig:time_diff_costheta_asym}, which are a trace of the asymmetric mode dynamics.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_vs_theta_asymmetric.pdf}
+    \caption{Time difference between both anodes versus the angle of emission for asymmetric fission of Cerium.}
+    \label{fig:time_diff_costheta_asym}
+\end{figure}
+Finally, we can see the time difference versus the sum of energy deposited in the gas volume of the forward detector, which is shown in figure \ref{fig:time_diff_energy_asym}, where two peaks are visible.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_sum_cathode_forward_asymmetric.pdf}
+    \caption{Time difference between both anodes versus the sum of energy deposited in the gas (forward fragment) for asymmetric fission of Cerium.}
+    \label{fig:time_diff_energy_asym}
+\end{figure}
+
+\subsection{Uranium fission fragments}
+In this section, we will show the results for Uranium-238 fission fragments, distinguishing between two different neutron energies: 5 MeV and 100 MeV. We will make an analog study as in the previous section, showing the distribution of the most important observables.
+\subsubsection*{$E_n=5$ MeV}
+We will begin by showing the charge distribution of the accepted fragments, which is shown in figure \ref{fig:charge_5MeV}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/charge_5MeV.pdf}
+    \caption{Charge distribution of the fragments for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:charge_5MeV}
+\end{figure}
+As expected, the heavy fission fragment peak is around $Z=52-56$. The energy distribution of the fragments is shown in figures \ref{fig:energy_5MeV_back} and \ref{fig:energy_5MeV_forw}. What we can see is that, for the forward-emitted fragment there is a broader distribution of final energies for a given initial energy. This again can be explained by taking into account the bigger amount of layers traversed, thus a bigger energy loss and straggling.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/energy_5MeV_backward.pdf}
+    \caption{Energy distribution of the backward-emitted fragments for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:energy_5MeV_back}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/energy_5MeV_forward.pdf}
+    \caption{Energy distribution of the forward-emitted fragments for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:energy_5MeV_forw}
+\end{figure}
+If we study the efficiency of detection, we can see a bigger acceptance (in polar angle) than in the case of Cerium ($\theta_{max}=100 ^{\circ}$ for Cerium, 120 for Uranium), which is expected since the energy of the fragments is bigger. The results can be seen in figure \ref{fig:eff_5MeV}.
+\begin{figure}[H]
+    \centering   
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/efficiency_5MeV.pdf}
+    \caption{Efficiency of detection for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:eff_5MeV}
+\end{figure}
+If we now take a look at the time difference between both anodes, we can see the distribution shown in figure \ref{fig:diff_tof_5MeV}. The distribution is characterised by 2 peaks. The first peak is higher and narrower, since it corresponds to the case where the light fission fragment is emitted forward, thus having a higher velocity and a smaller energy loss. This can be confirmed by plotting the time difference against the intial energy of the forward-emitted fragment, as shown in figure \ref{fig:time_diff_initial_energy_5MeV}, where we can see that the left peak corresponds only to events with a higher initial energy (light fission fragments). If we see the correlation between time difference and final energy (see fig. \ref{fig:time_diff_final_energy_5MeV}), we can see that the peak at positive time differences is more spread since it receives contributions from both light and heavy fragments, whereas as the final energy increases, we go to the left peak, where only light fragments contribute (higher final energies).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_5MeV.pdf}
+    \caption{Time difference between both anodes for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:diff_tof_5MeV}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_initial_energy_5MeV.pdf}
+    \caption{Time difference between both anodes versus the initial energy of the forward-emitted fragment for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:time_diff_initial_energy_5MeV}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_final_energy_5MeV.pdf}
+    \caption{Time difference between both anodes versus the final energy of the forward-emitted fragment for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:time_diff_final_energy_5MeV}
+\end{figure}
+Now, we can continue our analysis by plotting the time difference against the angle of emission, as shown in figure \ref{fig:time_diff_costheta_5MeV}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_theta_5MeV.pdf}
+    \caption{Time difference between both anodes versus the angle of emission for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:time_diff_costheta_5MeV}
+\end{figure}
+We shall point out here that the distribution is symmetric with respect to $\theta=45^{\circ}$, which is expected since the fragments traverse less matter in this direction, and thus they will traverse the same amount of matter as they deviate the same quantity from $\theta=45^{\circ}$ to higher or lower angles.
+Finally, we can see the time difference versus the sum of energy deposited in the gas volume of the forward detector, which is shown in figure \ref{fig:time_diff_energy_5MeV}, where we can easily distinguished between the heavy and light fragments when emitted forward. The light one is defined as the one that tends to deposit more energy in the gas, thus being the accumulation of points in the right part of the plot. The heavy fragment has a more spread distribution of times for a given energy deposition.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_cathodes_5MeV.pdf}
+    \caption{Time difference between both anodes versus the sum of energy deposited in the gas (forward fragment) for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:time_diff_energy_5MeV}
+\end{figure}
+\subsubsection*{$E_n=100$ MeV}
+In this section, we will show the results for Uranium-238 fission fragments with a neutron energy of 100 MeV. We will make an analog study as in the previous section, showing the distribution of the most important observables.
+We will begin by showing the correlation between the initial and final energy for the forward and backward emitted fragments, which are shown in figures \ref{fig:energy_100MeV_back} and \ref{fig:energy_100MeV_forw}. What we can see is that the final energy is more spread for a given initial energy in the case of the forward-emitted fragment, which is expected since it traverses more matter (backing, target and gas).
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/energy_100MeV_backward.pdf}
+    \caption{Energy distribution of the backward-emitted fragments for Uranium fission with $E_n=100$ MeV.}
+    \label{fig:energy_100MeV_back}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/energy_100MeV_forward.pdf}
+    \caption{Energy distribution of the forward-emitted fragments for Uranium fission with $E_n=100$ MeV.}
+    \label{fig:energy_100MeV_forw}
+\end{figure}
+The efficiency of detection is shown in figure \ref{fig:eff_100MeV}, where we can see that the acceptance is different with respect to the 5 MeV case. First, there is an obvious effect of the statistics, because GEF gave an output of 100000 fission events at 100 MeV and 200000 events at 5 MeV. But the most striking difference is that the efficiency in the azimuthal angle begins to drop at smaller polar angles in the case of 100 MeV. Why?
+
+\begin{figure}[H]
+    \centering   
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/efficiency_100MeV.pdf}
+    \caption{Efficiency of detection for Uranium fission with $E_n=100$ MeV.}
+    \label{fig:eff_100MeV}
+\end{figure}
+If we look at the time difference between both anodes, we can see the figure shown in figure \ref{fig:diff_tof_100MeV}. As expected, the distribution presents only one peak, since at this energy the symmetric channel dominates, thus the fragments have similar energies and masses. Note that the mean of the distribution is not zero, since the forward-emitted fragment takes a longer time to reach the anode.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_100MeV.pdf}
+    \caption{Time difference between both anodes for Uranium fission with $E_n=100$ MeV.}
+    \label{fig:diff_tof_100MeV}
+\end{figure}
+If we see the correlation between time difference and final energy (see fig. \ref{fig:time_diff_final_energy_100MeV}), we can see that the distribution is more symmetric than in the 5 MeV case, since both fragments have similar energies and masses.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_final_energy_100MeV.pdf}
+    \caption{Time difference between both anodes versus the final energy of the forward-emitted fragment for Uranium fission with $E_n=100$ MeV.}
+    \label{fig:time_diff_final_energy_100MeV}
+\end{figure}
+If we now take a look at the time difference versus the angle of emission, as shown in figure \ref{fig:time_diff_costheta_100MeV}, we can see that the time difference gets bigger at larger angles, thus a small curvature at the right part of the plot is observed, as expected.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_theta_100MeV.pdf}
+    \caption{Time difference between both anodes versus the angle of emission for Uranium fission with $E_n=100$ MeV.}
+    \label{fig:time_diff_costheta_100MeV}
+\end{figure}
+Finally, we can see the time difference versus the sum of energy deposited in the gas volume of the forward detector, which is shown in figure \ref{fig:time_diff_energy_100MeV}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/diff_tof_cathodes_100MeV.pdf}
+    \caption{Time difference between both anodes versus the sum of energy deposited in the gas (forward fragment) for Uranium fission with $E_n=100$ MeV.}
+    \label{fig:time_diff_energy_100MeV}
+\end{figure}
+
+
+\section{Mass reconstruction}
+Using the results of the simulation, we can try to reconstruct the mass of the fragments using only the magnitudes that can be obtained from the observables in the experiment.
+The most straightforward method used is based on the conservation of momentum and energy in the fission process. Thus, we have:
+\begin{align}
+    \vec{P_{CM}} = 0 = \vec{P_1} + \vec{P_0} \\
+    P_1 =  P_0 \\
+    M_1 V_1 = M_0 V_0 \\
+    \frac{M_1}{M_0} = \frac{V_0}{V_1} \\
+    \frac{M_1}{M_0} = \frac{tof_1}{tof_0} \\
+    M_1 + M_0 = M_{CN} \\
+    \Delta t = tof_1 - tof_0 \\
+    M_1= M_{CN} \frac{tof_1}{2tof_1-\Delta t} \\
+\end{align}
+where $P_i$ is the momentum, $M_i$ the mass and $V_i$ the velocity of each fragment. The velocities can be expressed as the distance traversed \textbf{by the fragment} divided by the time of flight since the fragment is emitted until it reaches the detector. In the expressions above we are assuming that both fragments traverse the same distance, which is not exactly true since the fission point can vary within the target thickness, but it is a good approximation since the target is thin enough.
+On the other hand, in the experiment we do not have access to the absolute time of flight of each fragment, because our tof measurement is the time since the neutron is created after the spallation target until the fragment reaches the anode. Thus, we have to express the time of flight of each fragment as:
+\begin{align}
+    tof_0 = t_{0} + t_{n} \\
+    tof_1 = t_{1} + t_{n} \\
+    tof_1 - tof_0 = t_{1} - t_{0} = \Delta t
+\end{align}
+where $t_n$ is the time at which the neutron creates the fission in the target, and $t_1$ and $t_2$ are the times at which each fragment reaches the anode. The only direct measurement about the time of flight of the fragments is the time difference between the two anodes. However, in our simulation we have access to the time of the fragments, in addition to the time difference, so we can use this information in order to estimate, for a given time difference, what is the time of flight of each fragment.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/tof_1:tof_diff.pdf}
+    \caption{Time of flight difference between the two fragments versus the time of flight of the forward-emitted fragment for Uranium fission with $E_n=5$ MeV.}
+    \label{fig:mass_reconstruction_5MeV}
+\end{figure}
+The cuts are done as follows:
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/cuts.pdf}
+    \caption{Time difference between both anodes versus the sum of energy deposited in the gas (forward fragment) for Uranium fission with $E_n=5$ MeV, with cuts to distinguish between light and heavy fragments.}
+    \label{cuts}
+\end{figure}
+In figure \ref{fig:mass_reconstruction_5MeV}, we can see the correlation between the time of flight of the forward-emitted fragment and the time difference between both anodes for Uranium fission with $E_n=5$ MeV. Using this correlation, we can estimate the time of flight of each fragment for a given time difference, and thus reconstruct the mass using the formula derived above. In order to do this, we have to perform some cuts to distinguish between the light and heavy fragments. To do this, we will use the plot of time difference versus the sum of energy deposited in the gas volume of the forward detector (see fig. \ref{fig:time_diff_energy_5MeV}). Using this, we obtain the following results:
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/cuts_heavy.pdf}
+        \caption{Time of flight of the heavy fragment versus the time difference after cuts. The two peaks correspond to the mass region between  $A_{HFF}=120-140$ and $A_{HFF}=135-160$.}
+        \label{fig:mass_heavy_5MeV}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/cuts_light.pdf}
+        \caption{Time of flight of the light fragment versus the time difference after cuts.}
+        \label{fig:mass_light_5MeV}
+    \end{subfigure}
+    \caption{Time of flight of the fragments versus the time difference after cuts.}
+    \label{fig:mass_reconstructed_5MeV}
+\end{figure}
+Before trying to reconstruct the mass, we have to take into account that the time of flight is affected by the energy loss in the different materials, thus the $\Delta t$ 
+\begin{thebibliography}{9}
+    \bibitem{Ziegler}
+    J.F. Ziegler, J.B. Biersack, U. Littmark,
+    \textit{The Stopping and Range of Ions in Solids},
+     Vol. 1, Pergamon Press (1985).
+     \bibitem{Wagemans}
+    C. Wagemans,
+    \textit{The Nuclear Fission Process},
+     CRC Press (1991).
+     \bibitem{GEF}
+    K.-H. Schmidt, B. Jurado, C. Amouroux, C. Schmitt,
+    \textit{General description of fission observables: GEF model code},
+     Nucl. Data Sheets 131, 107 (2016). 
+
+
+\end{thebibliography}
+\end{document}
