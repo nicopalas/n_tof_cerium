@@ -24,10 +24,12 @@ Int_t detn_all[10];
 Double_t c=299792458.0; //speed of light in m/s
 Double_t neutron_mass= 939.565420;// mev/c^2
 Double_t l=185.0; // flight path in meters
+Double_t neutron_energy_0, neutron_energy_1, neutron_energy_2, neutron_energy_3, neutron_energy_4, neutron_energy_5;
+Double_t neutron_energy_6, neutron_energy_7, neutron_energy_8;
 // we load the variables that we need to compute the neutron energy
 void neutron_energy(int run_number) {
     std::vector<Double_t> gamma_flash_means; // now we will compute the mean of the gamma flash
-    std::string infile_name = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/gamma_flash/threshold=400/gamma_flash_" + std::to_string(run_number) + ".root";
+    std::string infile_name = "gamma_flash_" + std::to_string(run_number) + ".root";
     TFile *infile = TFile::Open(infile_name.c_str()); //input files
       // loading data from previous step
     TTree *intree = (TTree*)infile->Get("coincidences");
@@ -42,7 +44,7 @@ void neutron_energy(int run_number) {
     intree->SetBranchAddress("gamma_flash7", gamma_flash7);
     intree->SetBranchAddress("gamma_flash8", gamma_flash8);
     intree->SetBranchAddress("gamma_flash9", gamma_flash9);
-    intree->SetBranchAddress("detn", detn_all);
+    intree->SetBranchAddress("detn_all", detn_all);
     intree->SetBranchAddress("mult0", &mult0);
     intree->SetBranchAddress("mult1", &mult1);
     intree->SetBranchAddress("mult2", &mult2);
@@ -65,7 +67,7 @@ void neutron_energy(int run_number) {
     // Create histograms for each gamma_flash channel
     std::vector<TH1D*> hists;
     for (int i = 0; i < 10; i++) {
-        hists.push_back(new TH1D(Form("h_flash%d", i), Form("Gamma Flash %d", i), 2000, -760, -700));
+        hists.push_back(new TH1D(Form("h_flash%d", i), Form("Gamma Flash %d", i), 200, -760, -710));
         hists[i]->GetXaxis()->SetTitle("TOF (ns)");
         hists[i]->GetYaxis()->SetTitle("Counts");
     }
@@ -91,7 +93,7 @@ void neutron_energy(int run_number) {
         hists[i]->Draw();
 
         TSpectrum spectrum(10);  // up to 10 possible peaks
-        Int_t nPeaks = spectrum.Search(hists[i], 2, "nodraw", 0.1); // σ=2 bins smoothing, threshold 10%
+        Int_t nPeaks = spectrum.Search(hists[i], 1, "nodraw", 0.4); // σ=1 bins smoothing, threshold 40%
 
         double *peaks = spectrum.GetPositionX();
         double bestPeakX = 0;
@@ -138,11 +140,11 @@ void neutron_energy(int run_number) {
         offsets_gamma_flash[i] = gamma_flash_means[i] - gamma_flash_means[0]; //offset
     }
 
-    std::string outfile2 = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/anodes_final/toy/out_run" + std::to_string(run_number) + ".root";
+    std::string outfile2 = "out_run" + std::to_string(run_number) + ".root";
     TFile *outfile = new TFile(outfile2.c_str(), "RECREATE"); //output file
     TTree *outtree = new TTree("coincidences", "Corrected Coincidences Tree");
 
-    std::string file_name = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/coincidences_raw/toy/output_run" + std::to_string(run_number) + ".root";
+    std::string file_name = "output_run" + std::to_string(run_number) + ".root";
     TFile *inputFile = TFile::Open(file_name.c_str()); //input files
     TTree *inputTree = (TTree*)inputFile->Get("nTOF_coincidences");  
 
@@ -163,7 +165,7 @@ void neutron_energy(int run_number) {
     inputTree->SetBranchAddress("amp7", amp7);
     inputTree->SetBranchAddress("amp8", amp8);
     inputTree->SetBranchAddress("amp9", amp9);
-    inputTree->SetBranchAddress("detn", detn_all);
+    inputTree->SetBranchAddress("detn_all", detn_all);
     inputTree->SetBranchAddress("mult0", &mult0);
     inputTree->SetBranchAddress("mult1", &mult1);
     inputTree->SetBranchAddress("mult2", &mult2);
@@ -205,7 +207,7 @@ void neutron_energy(int run_number) {
     outtree->Branch("mult7", &mult7, "mult7/I");
     outtree->Branch("mult8", &mult8, "mult8/I");
     outtree->Branch("mult9", &mult9, "mult9/I");
-    outtree->Branch("detn", detn_all, "detn[10]/I");
+    outtree->Branch("detn_all", detn_all, "detn[10]/I");
     outtree->Branch("amp0", amp0, "amp0[mult0]/F");
     outtree->Branch("amp1", amp1, "amp1[mult1]/F");
     outtree->Branch("amp2", amp2, "amp2[mult2]/F");
@@ -249,7 +251,6 @@ void neutron_energy(int run_number) {
     outtree-> Branch("neutron_energy_8", &neutron_energy_8, "neutron_energy_8/D");
 
     Long64_t kentries = inputTree->GetEntries();
-    Long64_t npkupEntries = pkupTree->GetEntries();
     for (Long64_t i = 0; i < kentries; i++) {
         inputTree->GetEntry(i);
                 // 50 mm distance between PPACS (we use 0.0704 because it is the distance between the center of the detectors having into account the inclination))
@@ -271,9 +272,9 @@ void neutron_energy(int run_number) {
                 //3. there may be some coincidences that are not real because they involve non-adjacent detectors.
                 // For example, if the coincidence is between detectors 0 and 9, the neutron energy will be NaN because the tof difference is too small (random coincidence).
                 // this was tested at first and i decided to set this type of coincidences to 0 energy since they are not relevant (at least their energy isn't)
-                for (int j = 0; j < 8; j++) {
+                for (int j = 0; j <= 8; j++) {
  // we only need to go to 8 because if detn_all[8] is the first one to trigger then the coincidence will not involve adjacent detectors, hence it is not real.
-                    if (detn_all[j] == 1 && detn_all[j+1]==1) {
+                    if (detn_all[j] >= 1 && detn_all[j+1] >= 1) {
                         switch (j) {
                 case 0:
                     neutron_energy_0 = neutron_mass * (1/ TMath::Power(1-TMath::Power(l / (c*(tof0[0] - gamma_flash0[0]+185/0.3)*1E-9), 2),0.5)-1);
@@ -307,15 +308,15 @@ void neutron_energy(int run_number) {
         }
                     
             //sometimes the energy is NaN because the tof difference is too small. This happens due to random coincidences betweeen non-adjacent detectors
-        if (TMath::IsNaN(neutron_energy_0)) neutron_energy_0 = 0;
-        if (TMath::IsNaN(neutron_energy_1)) neutron_energy_1 = 0;
-        if (TMath::IsNaN(neutron_energy_2)) neutron_energy_2 = 0;
-        if (TMath::IsNaN(neutron_energy_3)) neutron_energy_3 = 0;
-        if (TMath::IsNaN(neutron_energy_4)) neutron_energy_4 = 0;
-        if (TMath::IsNaN(neutron_energy_5)) neutron_energy_5 = 0;
-        if (TMath::IsNaN(neutron_energy_6)) neutron_energy_6 = 0;
-        if (TMath::IsNaN(neutron_energy_7)) neutron_energy_7 = 0;
-        if (TMath::IsNaN(neutron_energy_8)) neutron_energy_8 = 0;
+        if (TMath::IsNaN(neutron_energy_0) || neutron_energy_0>5000.) neutron_energy_0 = -1000.;
+        if (TMath::IsNaN(neutron_energy_1) || neutron_energy_1>5000.) neutron_energy_1 = -1000.;
+        if (TMath::IsNaN(neutron_energy_2) || neutron_energy_2>5000.) neutron_energy_2 = -1000.;
+        if (TMath::IsNaN(neutron_energy_3) || neutron_energy_3>5000.) neutron_energy_3 = -1000.;
+        if (TMath::IsNaN(neutron_energy_4) || neutron_energy_4>5000.) neutron_energy_4 = -1000.;
+        if (TMath::IsNaN(neutron_energy_5) || neutron_energy_5>5000.) neutron_energy_5 = -1000.;
+        if (TMath::IsNaN(neutron_energy_6) || neutron_energy_6>5000.) neutron_energy_6 = -1000.;
+        if (TMath::IsNaN(neutron_energy_7) || neutron_energy_7>5000.) neutron_energy_7 = -1000.;
+        if (TMath::IsNaN(neutron_energy_8) || neutron_energy_8>5000.) neutron_energy_8 = -1000.;
     }
 
     outtree->Fill(); //we only fill the hist if the if statement(the pickup coincides with the signal).)
@@ -325,6 +326,5 @@ void neutron_energy(int run_number) {
 
     outfile->Write();
     outfile->Close();
-    file2->Close();
     inputFile->Close();
 }
