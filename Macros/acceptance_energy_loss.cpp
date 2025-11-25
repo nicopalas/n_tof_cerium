@@ -28,7 +28,7 @@ const double gas_path_cathode_cm =0.32 ; // cm
 
 // ---- Material parameters ----
 // Target: UO2 areal density 1.2 mg/cm² = 0.0012 g/cm²
-const double target_areal_gcm2 = 1.2e-3;
+const double target_areal_gcm2 = 0.3e-3;
 
 // Backing: Aluminum 2.5 microns = areal density: 0.00025cm * 2.70g/cm³ = 0.000675 g/cm²
 const double backing_areal_gcm2 = 2.5e-4 * 2.70;
@@ -86,8 +86,8 @@ void primed_to_beam_coordinates(const array<double,3>& p, array<double,3>& out){
 }
 
 int main(){
-    const char* infile = "fission_Ce140.root";
-    const char* outfile = "fission_events_cerium_symmetric.root";
+    const char* infile = "/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/ROOT_files/fission_events_uranium.root";
+    const char* outfile = "fission_events_output_uranium.root";
 
     TRandom3 rng(42);
     TFile *fin = TFile::Open(infile, "READ");
@@ -96,7 +96,7 @@ int main(){
         return 2;
     }
 
-    TTree *tin = (TTree*) fin->Get("symmetricTree");
+    TTree *tin = (TTree*) fin->Get("FissionTree");
     if (!tin){
         cerr << "symmetricTree not found.\n";
         fin->Close();
@@ -107,14 +107,16 @@ int main(){
     Int_t Z1=0, Z2=0;
     Int_t A1post=0, A2post=0;
     Double_t tke_tot=0, tke1=0, tke2=0;
+    Double_t neutron_energy=0;
 
     tin->SetBranchAddress("Z1", &Z1);
     tin->SetBranchAddress("Z2", &Z2);
     tin->SetBranchAddress("A1", &A1post);
     tin->SetBranchAddress("A2", &A2post);
-    tin->SetBranchAddress("TKE", &tke_tot);
-    tin->SetBranchAddress("KE1", &tke1);
-    tin->SetBranchAddress("KE2", &tke2);
+    tin->SetBranchAddress("TKEpost", &tke_tot);
+    tin->SetBranchAddress("KE_1", &tke1);
+    tin->SetBranchAddress("KE_2", &tke2);
+    tin->SetBranchAddress("NeutronEnergy", &neutron_energy);
 
     // Output file & tree
     TFile *fout = TFile::Open(outfile, "RECREATE");
@@ -184,6 +186,7 @@ int main(){
     tout->Branch("forward_A",&forward_A);
     tout->Branch("backward_Z",&backward_Z);
     tout->Branch("backward_A",&backward_A);
+    tout->Branch("neutron_energy",&neutron_energy);
 
     Long64_t nEntries = tin->GetEntries();
     cout << "Entries: " << nEntries << "\n";
@@ -192,14 +195,14 @@ int main(){
     // Define reference materials with 1 g/cm² thickness
      catima::Material ceo2_ref1;
     // UO2: Uranium dioxide, material 340 in CATIMA
-    ceo2_ref1.add_element(140, 58, 1.0); // Cerium
+    ceo2_ref1.add_element(238.03, 92, 1.0); // Cerium
     ceo2_ref1.add_element(16.00, 8, 2.0);   // Oxygen
-    ceo2_ref1.density(3.1748); // CeO2 density in g/cm³
+    ceo2_ref1.density(7.29); // CeO2 density in g/cm³
 
     catima::Material ceo2_ref2;
-    ceo2_ref2.add_element(140.12, 58, 1.0); // Cerium
+    ceo2_ref2.add_element(238.03, 92, 1.0); // Cerium
     ceo2_ref2.add_element(16.00, 8, 2.0);   // Oxygen
-    ceo2_ref2.density(3.1748); // CeO2 density in g/cm³
+    ceo2_ref2.density(7.29); // CeO2 density in g/cm³
 
     catima::Material al_ref;
     al_ref.add_element(27.0, 13, 1.0);
