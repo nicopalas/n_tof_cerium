@@ -1,8 +1,7 @@
 # Ignore VSCode configs
 .vscode/
 
-# Ignore output files
-*.pdf
+# Ignore output files 
 *.root
 catima*
 .DS_Store
