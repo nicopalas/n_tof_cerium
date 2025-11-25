@@ -85,7 +85,7 @@ Regarding the low amplitude region, we can see in fig. \ref{fig:low_amp} that th
     \label{fig:low_amp}
 \end{figure}
 
-\section{Fission event selection}
+\section{Fission event selection (Fission selection routine)}
 Once we have calibrated the time-of-flight using the gamma flash events, we can proceed to select fission events. 
 Fission fragments are accelerated by the Coulomb repulsion between the two nascent fragments, and emitted in opposite directions at high velocities. Therefore, we expect to see a signature of fission events in our detectors if two adjacent anodes detect signals almost simultaneously. To identify these events, we will look for coincidences between adjacent detectors within a very short time window (about 10 ns).
 Since fragments are of comparable mass and charge, we expect their amplitudes to be similar. We can also take advantage of the cathode signals to further refine our selectio, as the relation between anode and cathode time and amplitude signals can help us distinguish between real fission events and other types of reactions.
@@ -136,6 +136,11 @@ Finally, we can use the observable of the amplitude ratio between the sum of amp
     \label{fig:correlation_amps_anode_cathode}
 \end{figure}
 Once we have justified our selection criteria using uranium, we can proceed to apply them to the data and obtain the fission events also for cerium. 
+\section{Analysis of fission events for Uranium}
+Firstly, we should note here that after these cuts we will no longer have $\gamma$ flash events, since these events do not verify the conditions imposed. Why? Because these events are produced by relativistic particles that do not produce an avalanche. 
+In addition, in these events a large amount of particles are passing through the detector simultaneously, hence the cathode signals are not well defined in the sense that the signal received in both sides of the delay line is a superposition of many signals.
+Saying this, we can proceed to analyse the fission events.
+
 
 
 \end{document}
