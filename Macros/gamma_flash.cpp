@@ -28,7 +28,7 @@ Double_t l=185.0; // flight path in meters
 
 void gamma_flash(int run_number) {
 
-    std::string filename = "/Users/nico/Desktop/Tese/Results/anodes/coincidences_raw/toy/output_run" + std::to_string(run_number) + ".root";
+    std::string filename = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/coincidences_raw/toy/output_run" + std::to_string(run_number) + ".root";
     TFile *file = TFile::Open(filename.c_str()) ;//we need raw data for the pickup
     TTree *intree = (TTree*)file->Get("nTOF_coincidences");
 
@@ -74,7 +74,7 @@ void gamma_flash(int run_number) {
     intree->SetBranchAddress("mult", &mult);
 
     Long64_t nentries = intree->GetEntries(); // getting the number of entries to loop over them
-    std::string out_file = "/Users/nico/Desktop/Tese/Results/anodes/gamma_flash/gamma_flash_" + std::to_string(run_number) + ".root";
+    std::string out_file = "/nucl_lustre/n_tof_INTC_P_665/Analysis/Output/Anodes/gamma_flash/toy/gamma_flash_" + std::to_string(run_number) + ".root";
     TFile *outfile = new TFile(out_file.c_str(), "RECREATE");
     TTree *outtree = new TTree("coincidences", "Coincidences Tree");
     outtree->Branch("RunNumber", &RunNumber, "RunNumber/I");
@@ -130,14 +130,12 @@ void gamma_flash(int run_number) {
                     for(int k = 0; k < mult8; k++){gamma_flash8[k] = tof8[k] ;}
                     for(int k = 0; k < mult9; k++){gamma_flash9[k] = tof9[k] ;}
                     outtree->Fill();
-                    std::cout << "Filled entry " << outtree->GetEntries() << std::endl;
 
                 }
             }
 outtree->Write();
 outfile->Close();
 file->Close();
-file2->Close();
 std::cout << "Finished writing ROOT file!" << std::endl;
 
 }
