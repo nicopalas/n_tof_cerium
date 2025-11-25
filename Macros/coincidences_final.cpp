@@ -511,8 +511,8 @@ std::set<HitKey> usedHits;   // set to store unique hits. why are we using set? 
 
 
 
-for (Long64_t ev = 0; ev < nentries; ++ev) {
-    if (ev%100000 == 0){
+for (Long64_t ev = 0; ev < 50000000; ++ev) {
+    if (ev%1000000 == 0){
         std::cout << "ratio event_good: " << 100.0 * events_good / (ev + 1) << std::endl;
         std::cout << "% of events= " << 100.0*ev/(nentries) << std::endl;
 
