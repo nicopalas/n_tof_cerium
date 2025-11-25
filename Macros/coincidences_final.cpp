@@ -29,16 +29,16 @@ double tofA5[10], tofA6[10], tofA7[10], tofA8[10], tofA9[10];
 
 double dtA;
 
-// Posiciones
+// Positions detector
 double x0[10], y0v[10], x1[10], y1v[10], x2[10], y2[10], x3[10], y3[10];
 double x4[10], y4[10], x5[10], y5[10], x6[10], y6[10], x7[10], y7[10];
 double x8[10], y8[10], x9[10], y9[10];
 
-// Amplitudes A
+// Amplitudes Anodes
 float ampA0[10], ampA1[10], ampA2[10], ampA3[10], ampA4[10];
 float ampA5[10], ampA6[10], ampA7[10], ampA8[10], ampA9[10];
 
-// Amplitudes C
+// Amplitudes Cathodes
 float ampC01[10], ampC02[10], ampC03[10], ampC04[10];
 float ampC11[10], ampC12[10], ampC13[10], ampC14[10];
 float ampC21[10], ampC22[10], ampC23[10], ampC24[10];
@@ -50,13 +50,13 @@ float ampC71[10], ampC72[10], ampC73[10], ampC74[10];
 float ampC81[10], ampC82[10], ampC83[10], ampC84[10];
 float ampC91[10], ampC92[10], ampC93[10], ampC94[10];
 
-// Sumas
+// Sums
 double sumX0[10], sumY0[10], sumX1[10], sumY1[10], sumX2[10], sumY2[10];
 double sumX3[10], sumY3[10], sumX4[10], sumY4[10], sumX5[10], sumY5[10];
 double sumX6[10], sumY6[10], sumX7[10], sumY7[10], sumX8[10], sumY8[10];
 double sumX9[10], sumY9[10];
 
-// Diferencias
+// Differences
 double diffX0[10], diffY0[10], diffX1[10], diffY1[10], diffX2[10], diffY2[10];
 double diffX3[10], diffY3[10], diffX4[10], diffY4[10], diffX5[10], diffY5[10];
 double diffX6[10], diffY6[10], diffX7[10], diffY7[10], diffX8[10], diffY8[10];
@@ -68,7 +68,7 @@ float ratioX3[10], ratioY3[10], ratioX4[10], ratioY4[10], ratioX5[10], ratioY5[1
 float ratioX6[10], ratioY6[10], ratioX7[10], ratioY7[10], ratioX8[10], ratioY8[10];
 float ratioX9[10], ratioY9[10];
 
-// Suma de amplitudes
+// Sum of amplitudes
 float sumX0_ampA0[10], sumY0_ampA0[10], sumX1_ampA1[10], sumY1_ampA1[10];
 float sumX2_ampA2[10], sumY2_ampA2[10], sumX3_ampA3[10], sumY3_ampA3[10];
 float sumX4_ampA4[10], sumY4_ampA4[10], sumX5_ampA5[10], sumY5_ampA5[10];
@@ -76,10 +76,6 @@ float sumX6_ampA6[10], sumY6_ampA6[10], sumX7_ampA7[10], sumY7_ampA7[10];
 float sumX8_ampA8[10], sumY8_ampA8[10], sumX9_ampA9[10], sumY9_ampA9[10];
 
 
-
-// =====================================================
-//  DECLARACIÓN DE TUS ESTRUCTURAS Y VARIABLES GLOBALES
-// =====================================================
 
 struct hit { 
     int det; double tof_A0; float amp_A0; double tofC1_A0, tofC2_A0, tofC3_A0, tofC4_A0; 
@@ -242,7 +238,7 @@ void positions(const char *infile = "in.root",
                         double diffX = tofC2[k][j2] - tofC1[k][j1];
                         hSumX[idx]->Fill(sumX);
                         if(sumX > SUM_MIN && sumX < SUM_MAX && fabs(diffX) < (L_mm / 0.8)){ 
-                        //we will only fill diff if within physical limits
+                        //we will only fill diff if within physical limits (ad hoc)
                         hDiffX[idx]->Fill(diffX);
                         }
                     }
@@ -271,7 +267,7 @@ void positions(const char *infile = "in.root",
         }
     }
 
-    // Calibration: find scale factors vX, vY and means/sigmas of sums
+    // Calibration: find vX, vY and means/sigmas of sums
     std::vector<double> vX(NDET_USED,0), vY(NDET_USED,0);
     std::vector<double> meanSumX(NDET_USED,100), meanSumY(NDET_USED,100);
     std::vector<double> meanWidthX(NDET_USED,2), meanWidthY(NDET_USED,2);
@@ -310,14 +306,14 @@ void positions(const char *infile = "in.root",
             fX->SetParameter(0, peak);
             fX->SetParameter(1, 100.0);
             fX->SetParameter(2, 2.0);
-            // background initial guess
+            // background initial guess. the mean content of the histogram as plateau and 0 as the slope
             double meanContent = (hSumX[idx]->GetNbinsX()>0) ? (hSumX[idx]->Integral() / hSumX[idx]->GetNbinsX()) : 0.0;
             fX->SetParameter(3, meanContent);
             fX->SetParameter(4, 0.0);
 
-            // límites razonables
+            // 
             fX->SetParLimits(1, 90.0, 110.0);  // center around 100
-            fX->SetParLimits(2, 0.5, 5.0);     // expected physical width
+            fX->SetParLimits(2, 0.5, 5.0);     // expected width (above its resolution)
             fX->SetParLimits(3, 0.0, 10.0 * std::max(1.0, meanContent)); // background
             fX->SetParLimits(4, -3.1, 3.1);    // slope
 
@@ -367,7 +363,7 @@ void positions(const char *infile = "in.root",
     TTree *tbdt = new TTree("coincidences","coincidences_tree");
     int mult0, mult1, mult2, mult3, mult4, mult5, mult6, mult7, mult8, mult9;
 
-    // Multiplicidades
+    // mult branches
 tbdt->Branch("mult0", &mult0, "mult0/I");
 tbdt->Branch("mult1", &mult1, "mult1/I");
 tbdt->Branch("mult2", &mult2, "mult2/I");
@@ -393,7 +389,7 @@ tbdt->Branch("tofA7", tofA7, "tofA7[mult7]/D");
 tbdt->Branch("tofA8", tofA8, "tofA8[mult8]/D");
 tbdt->Branch("tofA9", tofA9, "tofA9[mult9]/D");
 
-// Coordenadas
+// detector positions
 tbdt->Branch("x0", x0, "x0[mult0]/D"); tbdt->Branch("y0", y0v, "y0[mult0]/D");
 tbdt->Branch("x1", x1, "x1[mult1]/D"); tbdt->Branch("y1", y1v, "y1[mult1]/D");
 tbdt->Branch("x2", x2, "x2[mult2]/D"); tbdt->Branch("y2", y2, "y2[mult2]/D");
@@ -405,7 +401,7 @@ tbdt->Branch("x7", x7, "x7[mult7]/D"); tbdt->Branch("y7", y7, "y7[mult7]/D");
 tbdt->Branch("x8", x8, "x8[mult8]/D"); tbdt->Branch("y8", y8, "y8[mult8]/D");
 tbdt->Branch("x9", x9, "x9[mult9]/D"); tbdt->Branch("y9", y9, "y9[mult9]/D");
 
-// Amplitudes A
+// Amplitudes
 tbdt->Branch("ampA0", ampA0, "ampA0[mult0]/F");
 tbdt->Branch("ampA1", ampA1, "ampA1[mult1]/F");
 tbdt->Branch("ampA2", ampA2, "ampA2[mult2]/F");
@@ -417,7 +413,7 @@ tbdt->Branch("ampA7", ampA7, "ampA7[mult7]/F");
 tbdt->Branch("ampA8", ampA8, "ampA8[mult8]/F");
 tbdt->Branch("ampA9", ampA9, "ampA9[mult9]/F");
 
-// Amplitudes C (4 canales por detector)
+// Amplitudes cathode
 tbdt->Branch("ampC01", ampC01, "ampC01[mult0]/F"); tbdt->Branch("ampC02", ampC02, "ampC02[mult0]/F");
 tbdt->Branch("ampC03", ampC03, "ampC03[mult0]/F"); tbdt->Branch("ampC04", ampC04, "ampC04[mult0]/F");
 
@@ -498,9 +494,9 @@ tbdt->Branch("sumX9_ampA9", sumX9_ampA9, "sumX9_ampA9[mult9]/F"); tbdt->Branch("
 
 
 
-std::vector<hit> hits;   // SOLO UNA DEFINICIÓN
+std::vector<hit> hits;  // vector to store the hits for a certain event
 
-Int_t events_good=0; // evita duplicados entre eventos
+Int_t events_good=0; // check how many events we are keeping
 using HitKey = std::tuple<
     int,      // det
     double, float,       // tof_A0, amp_A0
@@ -511,13 +507,15 @@ using HitKey = std::tuple<
     double, double        // x_0, y_0
 >;
 
-std::set<HitKey> usedHits;   // aquí se guardan TODOS los hits únicos
+std::set<HitKey> usedHits;   // set to store unique hits. why are we using set? because it automatically returns true if the element is already present
 
 
 
 for (Long64_t ev = 0; ev < nentries; ++ev) {
-    if (ev%10000 == 0){
+    if (ev%100000 == 0){
         std::cout << "ratio event_good: " << 100.0 * events_good / (ev + 1) << std::endl;
+        std::cout << "% of events= " << 100.0*ev/(nentries) << std::endl;
+
 
 
     }
@@ -528,19 +526,20 @@ for (Long64_t ev = 0; ev < nentries; ++ev) {
     mult5 = mult6 = mult7 = mult8 = mult9 = 0;
 
     mult = 0;
-    hits.clear();               // limpia el vector
+    hits.clear();               // clear the vector and other variables for each event
 
 
     event = ev;
 
-    for (int idx = 0; idx < NDET; ++idx) {
+    for (int idx = 0; idx < NDET; ++idx) { // loop over all detectors
         if (multA[idx] < 1) continue;
 
-        for (int i = 0; i < multA[idx]; i++) {
+        for (int i = 0; i < multA[idx]; i++) { // loop over all anode hits for a certain detector
 
             if (multC1[idx]<1 || multC2[idx]<1 || multC3[idx]<1 || multC4[idx]<1 ){
                 continue;
             }
+            // loop over all combinations of C1, C2, C3, C4 to search for valid cathodes for a certain anode
             for (int j1 = 0; j1 < multC1[idx]; j1++)
             for (int j2 = 0; j2 < multC2[idx]; j2++)
             for (int j3 = 0; j3 < multC3[idx]; j3++)
@@ -561,64 +560,53 @@ for (Long64_t ev = 0; ev < nentries; ++ev) {
                     double x_0 = vX[idx] * diffX / 2.0;
                     double y_0 = vY[idx] * diffY / 2.0;
 
-                            if (fabs(sumY - meanSumY[idx]) > 2 * meanWidthY[idx]
-                                || fabs(diffY) > (L_mm / vY[idx])
-                                || ratioY > 2.0 || ratioY < 0.5
-                                || ratio_amp_Y < 0.2 || ratio_amp_Y > 1.8 || fabs(sumX - meanSumX[idx]) > 2 * meanWidthX[idx] 
-                        || fabs(diffX) > (L_mm / vX[idx])  
-                        || ratioX > 2.0 || ratioX < 0.5 
-                        || ratio_amp_X < 0.2 || ratio_amp_X > 1.8) {
+                    // apply cuts
+                   if (fabs(sumY - meanSumY[idx]) > 2 * meanWidthY[idx]
+                    || fabs(diffY) > (L_mm / vY[idx]) || ratioY > 2.0 || ratioY < 0.5
+                    || ratio_amp_Y < 0.2 || ratio_amp_Y > 1.8 || fabs(sumX - meanSumX[idx]) > 2 * meanWidthX[idx] 
+                    || fabs(diffX) > (L_mm / vX[idx])  || ratioX > 2.0 || ratioX < 0.5  || ratio_amp_X < 0.2 || ratio_amp_X > 1.8) {
                                 continue;
-                                }
+                    }
+                    // if passed all cuts, create the hit
+                    hit h;
+                    h.det = idx;
+                    h.tof_A0 = tofA[idx][i];
+                    h.amp_A0 = ampA[idx][i];
+                    h.tofC1_A0 = tofC1[idx][j1];
+                    h.tofC2_A0 = tofC2[idx][j2];
+                    h.tofC3_A0 = tofC3[idx][j3];
+                    h.tofC4_A0 = tofC4[idx][j4];
 
-                            hit h;
-                            h.det = idx;
-                            h.tof_A0 = tofA[idx][i];
-                            h.amp_A0 = ampA[idx][i];
+                    h.ampC1_A0 = ampC1_val;
+                    h.ampC2_A0 = ampC2_val;
+                    h.ampC3_A0 = ampC3_val;
+                    h.ampC4_A0 = ampC4_val;
 
-                            h.tofC1_A0 = tofC1[idx][j1];
-                            h.tofC2_A0 = tofC2[idx][j2];
-                            h.tofC3_A0 = tofC3[idx][j3];
-                            h.tofC4_A0 = tofC4[idx][j4];
+                    h.sumX_0 = sumX;
+                    h.sumY_0 = sumY;
+                    h.diffX_0 = diffX;
+                    h.diffY_0 = diffY;
+                    h.ratioX_0 = ratioX;
+                    h.ratioY_0 = ratioY;
 
-                            h.ampC1_A0 = ampC1_val;
-                            h.ampC2_A0 = ampC2_val;
-                            h.ampC3_A0 = ampC3_val;
-                            h.ampC4_A0 = ampC4_val;
+                    h.x_0 = x_0;
+                    h.y_0 = y_0;
 
-                            h.sumX_0 = sumX;
-                            h.sumY_0 = sumY;
-                            h.diffX_0 = diffX;
-                            h.diffY_0 = diffY;
-                            h.ratioX_0 = ratioX;
-                            h.ratioY_0 = ratioY;
-
-                            h.x_0 = x_0;
-                            h.y_0 = y_0;
-
-                            h.sumX_amp_0 = ratio_amp_X;;
-                            h.sumY_amp_0 = ratio_amp_Y;
-                            HitKey key = std::make_tuple(
-    h.det,
-    h.tof_A0, h.amp_A0,
-    h.sumX_0, h.sumY_0,
-    h.diffX_0, h.diffY_0,
-    h.ratioX_0, h.ratioY_0,
-    h.sumX_amp_0, h.sumY_amp_0,
-    h.x_0, h.y_0
-);
+                    h.sumX_amp_0 = ratio_amp_X;;
+                    h.sumY_amp_0 = ratio_amp_Y;
+                    HitKey key = std::make_tuple(h.det,h.tof_A0, h.amp_A0, h.sumX_0, h.sumY_0,
+                    h.diffX_0, h.diffY_0, h.ratioX_0, h.ratioY_0,h.sumX_amp_0, h.sumY_amp_0, h.x_0, h.y_0);
                             if (usedHits.count(key) != 0) {
-    continue;   // ya existe → duplicado → descartar
-}
+                                    continue;   // already exists the hit then skip
+                    } 
 
-usedHits.insert(key);     // registrar este hit como único
-hits.push_back(h);        // ahora sí añadir el hit
-
+                    usedHits.insert(key);     // mark as used
+                    hits.push_back(h);        // adding
             }
         }
     }
 
-    for (const auto &hit : hits) {
+    for (const auto &hit : hits) { // loop over all valid hits found in the event and fill the tree branches
         mult++;
 
         switch (hit.det) {
@@ -823,16 +811,16 @@ hits.push_back(h);        // ahora sí añadir el hit
         break;
 }
     }
-    if (!hits.empty()) {
+    if (!hits.empty()) { // only store valid events with at least one valid hit
         tbdt->Fill();
         events_good++;
     }
 }
 fout->cd();
 tbdt->Write();
-fout->Close(); // cierra el archivo
+fout->Close(); // close the file
 
-std::cout << "Archivo ROOT escrito y cerrado correctamente.\n";
+std::cout << "File written and closed successfully.\n";
 }
 
         
