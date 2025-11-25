@@ -13,9 +13,9 @@ void make_histograms() {
     gStyle->SetOptStat(0);
 
     // Input / output
-    TFile *fin = new TFile("fission_events_cerium_symmetric.root", "READ");
+    TFile *fin = new TFile("/Users/nico/Desktop/Tese/Macros/Macros/n_tof_cerium/fission_events_output_uranium.root", "READ");
     TTree *t = (TTree*)fin->Get("fission_process");
-    TFile *fout = new TFile("fission_histograms_cerium_symmetric.root", "RECREATE");
+    TFile *fout = new TFile("histograms_fission_uranium.root", "RECREATE");
 
     // Helper lambda to get range of variable
     auto get_range = [&](const char* var){
@@ -90,7 +90,7 @@ void make_histograms() {
         "#font[12]{Backward Fragment Energy Losses};#DeltaE (MeV);Counts",150,xmin_b,xmax_b);
     TH1F *h_gas_b = new TH1F("h_gas_b","",150,xmin_b,xmax_b);
 
-    t->Draw("loss_target_backward>>h_target_b","","goff");
+    t->Draw("loss_target_backward>>h_target_b","neutron_energy<10","goff");
     t->Draw("loss_gas_backward>>h_gas_b","","goff");
 
     double max_target_b = h_target_b->GetBinContent(h_target_b->GetMaximumBin());
@@ -118,7 +118,7 @@ void make_histograms() {
     // =====================================================================
     // (3) Gas losses for cathode_x+cathode_y (forward/backward)
     // =====================================================================
-    t->Draw("(loss_gas_cathode_x_f+loss_gas_cathode_y_f)>>h_temp_f(150)","","goff");
+    t->Draw("(loss_gas_cathode_x_f+loss_gas_cathode_y_f)>>h_temp_f(150)","neutron_energy<10","goff");
     t->Draw("(loss_gas_cathode_x_b+loss_gas_cathode_y_b)>>h_temp_b(150)","","goff");
     TH1F *hf = (TH1F*)gDirectory->Get("h_temp_f");
     TH1F *hb = (TH1F*)gDirectory->Get("h_temp_b");
@@ -156,16 +156,16 @@ void make_histograms() {
     // Remaining plots (4–13): single or 2D, unchanged
     // =====================================================================
     TCanvas *c4 = new TCanvas("c4","TOF vs Cathode",800,600);
-    t->Draw("tof_diff:(loss_gas_cathode_x_f+loss_gas_cathode_y_f)>>h_tof_vs_cath(150,0,0,150,-20,20)",
-            "tof_diff>-20 && tof_diff<20","COLZ");
+    t->Draw("tof_diff:(loss_gas_cathode_x_f+loss_gas_cathode_y_f)>>h_tof_vs_cath(250,0,0,250,-10,10)",
+            "tof_diff>-10 && tof_diff<10","COLZ");
     ((TH2F*)gDirectory->Get("h_tof_vs_cath"))
         ->SetTitle("#font[12]{t_{1}-t_{0} vs Cathode Sum (Forward)};#DeltaE_{cath} (MeV);t_{1}-t_{0} (ns)");
     c4->Write();
 
     TCanvas *c5 = new TCanvas("c5","tof_diff",800,600);
-    t->Draw("tof_diff>>h_tof(150,-20,20)","tof_diff>-20 && tof_diff<20");
+    t->Draw("tof_diff>>h_tof(250,-10,10)","tof_diff>-10 && tof_diff<10","goff");
     ((TH1F*)gDirectory->Get("h_tof"))
-        ->SetTitle("#font[12]{Time of Flight Difference};t_{1}-t_{0} (ns);Counts");
+        ->SetTitle("#font[12]{};t_{1}-t_{0} (ns);Counts");
     c5->Write();
 
     TCanvas *c6 = new TCanvas("c6","tof_diff vs theta",800,600);
@@ -267,6 +267,51 @@ void make_histograms() {
         leg_z->Draw();
 
         c14->Write();
+
+        // =====================================================================
+    // (15–18) Energy vs Cathode Loss Correlations (Forward & Backward)
+    // =====================================================================
+
+    // ----- Forward: initial energy vs cathode loss -----
+    TCanvas *c15 = new TCanvas("c15","Initial Energy Forward vs Cathode Loss",800,600);
+    t->Draw("(loss_gas_cathode_x_f+loss_gas_cathode_y_f):initial_energy_forward_mevu"
+            ">>h_iniE_vs_cath_f(200,0,0,200,0,0)",
+            "neutron_energy<10", "COLZ");
+    ((TH2F*)gDirectory->Get("h_iniE_vs_cath_f"))
+        ->SetTitle("#font[12]{Initial Energy vs Cathode Loss (Forward)};"
+                   "E_{i} (MeV/u);#DeltaE_{cath} (MeV)");
+    c15->Write();
+
+    // ----- Forward: final energy vs cathode loss -----
+    TCanvas *c16 = new TCanvas("c16","Final Energy Forward vs Cathode Loss",800,600);
+    t->Draw("(loss_gas_cathode_x_f+loss_gas_cathode_y_f):final_energy_forward_mevu"
+            ">>h_finE_vs_cath_f(200,0,0,200,0,0)",
+            "neutron_energy<10", "COLZ");
+    ((TH2F*)gDirectory->Get("h_finE_vs_cath_f"))
+        ->SetTitle("#font[12]{Final Energy vs Cathode Loss (Forward)};"
+                   "E_{f} (MeV/u);#DeltaE_{cath} (MeV)");
+    c16->Write();
+
+    // ----- Backward: initial energy vs cathode loss -----
+    TCanvas *c17 = new TCanvas("c17","Initial Energy Backward vs Cathode Loss",800,600);
+    t->Draw("(loss_gas_cathode_x_b+loss_gas_cathode_y_b):initial_energy_backward_mevu"
+            ">>h_iniE_vs_cath_b(200,0,0,200,0,0)",
+            "neutron_energy<10", "COLZ");
+    ((TH2F*)gDirectory->Get("h_iniE_vs_cath_b"))
+        ->SetTitle("#font[12]{Initial Energy vs Cathode Loss (Backward)};"
+                   "E_{i} (MeV/u);#DeltaE_{cath} (MeV)");
+    c17->Write();
+
+    // ----- Backward: final energy vs cathode loss -----
+    TCanvas *c18 = new TCanvas("c18","Final Energy Backward vs Cathode Loss",800,600);
+    t->Draw("(loss_gas_cathode_x_b+loss_gas_cathode_y_b):final_energy_backward_mevu"
+            ">>h_finE_vs_cath_b(200,0,0,200,0,0)",
+            "neutron_energy<10", "COLZ");
+    ((TH2F*)gDirectory->Get("h_finE_vs_cath_b"))
+        ->SetTitle("#font[12]{Final Energy vs Cathode Loss (Backward)};"
+                   "E_{f} (MeV/u);#DeltaE_{cath} (MeV)");
+    c18->Write();
+
     fout->Write();
     fout->Close();
     fin->Close();
