@@ -14,7 +14,7 @@ const int NDET = 10;     // total de detectores en los datos
 const int MAXA = 50;     // máximo número de anodos por detector (entrada)
 const int MAXC = 100;    // máximo número de catodos por tipo (entrada)
 const int MAXOUT = 400;  // máximo número de catodos almacenados en el árbol de salida
-const double L_mm = 100.0;
+const double L_mm = 200.0;
 const double SUM_MIN = 80.0;
 const double SUM_MAX = 120.0;
 
@@ -29,10 +29,6 @@ double tofA5[10], tofA6[10], tofA7[10], tofA8[10], tofA9[10];
 
 double dtA;
 
-// Positions detector
-double x0[10], y0v[10], x1[10], y1v[10], x2[10], y2[10], x3[10], y3[10];
-double x4[10], y4[10], x5[10], y5[10], x6[10], y6[10], x7[10], y7[10];
-double x8[10], y8[10], x9[10], y9[10];
 
 // Amplitudes Anodes
 float ampA0[10], ampA1[10], ampA2[10], ampA3[10], ampA4[10];
@@ -76,17 +72,17 @@ float sumX6_ampA6[10], sumY6_ampA6[10], sumX7_ampA7[10], sumY7_ampA7[10];
 float sumX8_ampA8[10], sumY8_ampA8[10], sumX9_ampA9[10], sumY9_ampA9[10];
 
 
-
+// define a hit
 struct hit { 
     int det; double tof_A0; float amp_A0; double tofC1_A0, tofC2_A0, tofC3_A0, tofC4_A0; 
     float ampC1_A0, ampC2_A0, ampC3_A0, ampC4_A0; 
-    double sumX_0, sumY_0, diffX_0, diffY_0, ratioX_0, ratioY_0,x_0, y_0; 
+    double sumX_0, sumY_0, diffX_0, diffY_0, ratioX_0, ratioY_0; 
     float sumX_amp_0, sumY_amp_0; 
     float ratioX_amp_0, ratioY_amp_0; };
 
 
 
-// ------- printHit() -------
+//printing to debug
 void printHit(const hit& h)
 {
     std::cout << "Hit -- det = " << h.det << "\n";
@@ -109,9 +105,6 @@ void printHit(const hit& h)
     std::cout << "  diffY_0       = " << h.diffY_0 << "\n";
     std::cout << "  ratioX_0      = " << h.ratioX_0 << "\n";
     std::cout << "  ratioY_0      = " << h.ratioY_0 << "\n";
-
-    std::cout << "  x_0           = " << h.x_0 << "\n";
-    std::cout << "  y_0           = " << h.y_0 << "\n";
 
     std::cout << "  sumX_amp_0    = " << h.sumX_amp_0 << "\n";
     std::cout << "  sumY_amp_0    = " << h.sumY_amp_0 << "\n";
@@ -148,6 +141,8 @@ void positions(const char *infile = "in.root",
     static Double_t tofC1[NDET][MAXC], tofC2[NDET][MAXC], tofC3[NDET][MAXC], tofC4[NDET][MAXC];
     static Float_t  ampC1[NDET][MAXC], ampC2[NDET][MAXC], ampC3[NDET][MAXC], ampC4[NDET][MAXC];
     static Int_t multA[NDET], multC1[NDET], multC2[NDET], multC3[NDET], multC4[NDET];
+    Int_t PSpulse;
+    Float_t PulseIntensity; //beam variables
 
     // branches
     for(int detIdx=0; detIdx<NDET_USED; ++detIdx){
@@ -197,168 +192,9 @@ void positions(const char *infile = "in.root",
         if(!tin->GetBranch(Form("amp%d4",k))) std::cerr<<"Warning: branch amp"<<k<<"4 no encontrada\n";
         else tin->SetBranchAddress(Form("amp%d4",k), ampC4[k]);
     }
+    tin->SetBranchAddress("PulseIntensity", &PulseIntensity);
+    tin->SetBranchAddress("PSpulse", &PSpulse);
 
-    // Histograms per detector in detList
-    std::vector<TH1D*> hSumX(NDET_USED), hSumY(NDET_USED), hDiffX(NDET_USED), hDiffY(NDET_USED);
-    for(int idx=0; idx<NDET_USED; idx++){
-        int k = detList[idx];
-        hSumX[idx]  = new TH1D(Form("hSumX_%d",k), Form("Det %d sumX",k), 200, 0, 200);
-        hSumY[idx]  = new TH1D(Form("hSumY_%d",k), Form("Det %d sumY",k), 200, 0, 200);
-        hDiffX[idx] = new TH1D(Form("hDiffX_%d",k), Form("Det %d diffX",k), 400, -200, 200);
-        hDiffY[idx] = new TH1D(Form("hDiffY_%d",k), Form("Det %d diffY",k), 400, -200, 200);
-    }
-
-    Long64_t printLimit = std::min<Long64_t>(10, nentries);
-    for(Long64_t ev=0; ev<1000000; ++ev){
-        tin->GetEntry(ev);
-
-        // error handling if multiplicities are negative or too large
-        for(int id=0; id<NDET_USED; ++id){
-            int k = detList[id];
-            if(multA[k] < 0) multA[k] = 0;
-            if(multC1[k] < 0) multC1[k] = 0;
-            if(multC2[k] < 0) multC2[k] = 0;
-            if(multC3[k] < 0) multC3[k] = 0;
-            if(multC4[k] < 0) multC4[k] = 0;
-
-            if(multA[k] > MAXA){ std::cerr<<"Warning: multA["<<k<<"]="<<multA[k]<<" > MAXA -> truncated\n"; multA[k] = MAXA; }
-            if(multC1[k] > MAXC){ std::cerr<<"Warning: multC1["<<k<<"]="<<multC1[k]<<" > MAXC -> truncated\n"; multC1[k] = MAXC; }
-            if(multC2[k] > MAXC){std::cerr<<"Warning: multC2["<<k<<"]="<<multC2[k]<<" > MAXC -> truncated\n"; multC2[k] = MAXC; }
-            if(multC3[k] > MAXC){ std::cerr<<"Warning: multC3["<<k<<"]="<<multC3[k]<<" > MAXC -> truncated\n"; multC3[k] = MAXC; }
-            if(multC4[k] > MAXC){  std::cerr<<"Warning: multC4["<<k<<"]="<<multC4[k]<<" > MAXC -> truncated\n"; multC4[k] = MAXC; }
-        }
-
-        for(int idx=0; idx<NDET_USED; ++idx){
-            int k = detList[idx];
-            if(multA[k] < 1) continue;
-            for(int i=0;i<multA[k]; ++i){
-                for(int j1=0;j1<multC1[k]; ++j1){
-                    for(int j2=0;j2<multC2[k]; ++j2){
-                        double sumX = tofC2[k][j2] + tofC1[k][j1] - 2*tofA[k][i];
-                        double diffX = tofC2[k][j2] - tofC1[k][j1];
-                        hSumX[idx]->Fill(sumX);
-                        if(sumX > SUM_MIN && sumX < SUM_MAX && fabs(diffX) < (L_mm / 0.8)){ 
-                        //we will only fill diff if within physical limits (ad hoc)
-                        hDiffX[idx]->Fill(diffX);
-                        }
-                    }
-                }
-                for(int j3=0;j3<multC3[k]; ++j3){
-                    for(int j4=0;j4<multC4[k]; ++j4){
-                        double sumY = tofC4[k][j4] + tofC3[k][j3] - 2*tofA[k][i];
-                        double diffY = tofC4[k][j4] - tofC3[k][j3];
-                        hSumY[idx]->Fill(sumY);
-                        if(sumY > SUM_MIN && sumY < SUM_MAX && fabs(diffY) < (L_mm / 0.8)){
-                            hDiffY[idx]->Fill(diffY);
-                        }
-                    }
-                }
-            }
-        }
-
-        if(ev < printLimit){
-            // print multiplicities of the first events for debug
-            int k0 = detList[0];
-            std::cout << "Event " << ev
-                      << " multA["<<k0<<"]="<<multA[k0]
-                      << " multC1="<<multC1[k0]<<" multC2="<<multC2[k0]
-                      << " multC3="<<multC3[k0]<<" multC4="<<multC4[k0]
-                      << std::endl;
-        }
-    }
-
-    // Calibration: find vX, vY and means/sigmas of sums
-    std::vector<double> vX(NDET_USED,0), vY(NDET_USED,0);
-    std::vector<double> meanSumX(NDET_USED,100), meanSumY(NDET_USED,100);
-    std::vector<double> meanWidthX(NDET_USED,2), meanWidthY(NDET_USED,2);
-
-    for(int idx=0; idx<NDET_USED; ++idx){
-        int k = detList[idx];
-        TSpectrum sx(20), sy(20);
-        sx.Search(hDiffX[idx], 2, "nodraw", 0.05);
-        sy.Search(hDiffY[idx], 2, "nodraw", 0.05);
-
-        std::vector<double> px, py;
-        for(int i=0;i<sx.GetNPeaks(); ++i){
-            double p = sx.GetPositionX()[i];
-            if(fabs(p-110)<5 || fabs(p+110)<5) px.push_back(p);
-        }
-        for(int i=0;i<sy.GetNPeaks(); ++i){
-            double p = sy.GetPositionX()[i];
-            if(fabs(p-110)<5 || fabs(p+110)<5) py.push_back(p);
-        }
-        std::sort(px.begin(),px.end());
-        std::sort(py.begin(),py.end());
-        if(px.size()>=2) vX[idx] = L_mm / (0.5*(fabs(px.front())+fabs(px.back())));
-        if(py.size()>=2) vY[idx] = L_mm / (0.5*(fabs(py.front())+fabs(py.back())));
-        std::cout << "Detector " << k
-                  << "  vX = " << vX[idx]
-                  << "  vY = " << vY[idx]
-                  << std::endl;
-
-        // fitting
-        if (hSumX[idx]->GetEntries() > 50) {
-            double meanHist = hSumX[idx]->GetMean();
-            double peak = hSumX[idx]->GetMaximum();
-            // gaus(0)+pol1(3): params [0]=A, [1]=mean, [2]=sigma, [3]=a0, [4]=a1
-            TF1 *fX = new TF1(Form("fX_%d", k), "gaus(0) + pol1(3)", SUM_MIN, SUM_MAX);
-            fX->SetParNames("A", "mean", "sigma", "a0", "a1");
-            fX->SetParameter(0, peak);
-            fX->SetParameter(1, 100.0);
-            fX->SetParameter(2, 2.0);
-            // background initial guess. the mean content of the histogram as plateau and 0 as the slope
-            double meanContent = (hSumX[idx]->GetNbinsX()>0) ? (hSumX[idx]->Integral() / hSumX[idx]->GetNbinsX()) : 0.0;
-            fX->SetParameter(3, meanContent);
-            fX->SetParameter(4, 0.0);
-
-            // 
-            fX->SetParLimits(1, 90.0, 110.0);  // center around 100
-            fX->SetParLimits(2, 0.5, 5.0);     // expected width (above its resolution)
-            fX->SetParLimits(3, 0.0, 10.0 * std::max(1.0, meanContent)); // background
-            fX->SetParLimits(4, -3.1, 3.1);    // slope
-
-            hSumX[idx]->Fit(fX, "RQ"); // R: use range, Q: quiet
-
-            meanSumX[idx]   = fX->GetParameter(1);
-            meanWidthX[idx] = fX->GetParameter(2);
-
-            std::cout << "Detector " << k
-                      << "  meanSumX = " << meanSumX[idx]
-                      << "  sigma = " << meanWidthX[idx]
-                      << "  (chi2/ndf=" << (fX->GetNDF()? fX->GetChisquare()/fX->GetNDF() : -1) << ")"
-                      << std::endl;
-        }
-
-        // fitting-
-        if (hSumY[idx]->GetEntries() > 50) {
-            double meanHist = hSumY[idx]->GetMean();
-            double peak = hSumY[idx]->GetMaximum();
-            TF1 *fY = new TF1(Form("fY_%d", k), "gaus(0) + pol1(3)", SUM_MIN, SUM_MAX);
-            fY->SetParNames("A", "mean", "sigma", "a0", "a1");
-            fY->SetParameter(0, peak);
-            fY->SetParameter(1, 100.0);
-            fY->SetParameter(2, 2.0);
-            double meanContent = (hSumY[idx]->GetNbinsX()>0) ? (hSumY[idx]->Integral() / hSumY[idx]->GetNbinsX()) : 0.0;
-            fY->SetParameter(3, meanContent);
-            fY->SetParameter(4, 0.0);
-
-            fY->SetParLimits(1, 90.0, 110.0);
-            fY->SetParLimits(2, 0.5, 5.0);
-            fY->SetParLimits(3, 0.0, 10.0 * std::max(1.0, meanContent));
-            fY->SetParLimits(4, -3.1, 3.1);
-
-            hSumY[idx]->Fit(fY, "RQ");
-
-            meanSumY[idx]   = fY->GetParameter(1);
-            meanWidthY[idx] = fY->GetParameter(2);
-
-            std::cout << "Detector " << k
-                      << "  meanSumY = " << meanSumY[idx]
-                      << "  sigma = " << meanWidthY[idx]
-                      << "  (chi2/ndf=" << (fY->GetNDF()? fY->GetChisquare()/fY->GetNDF() : -1) << ")"
-                      << std::endl;
-        }
-    } // end calibration loop
     TFile *fout = new TFile(outfile,"RECREATE");
     TTree *tbdt = new TTree("coincidences","coincidences_tree");
     int mult0, mult1, mult2, mult3, mult4, mult5, mult6, mult7, mult8, mult9;
@@ -376,6 +212,8 @@ tbdt->Branch("mult8", &mult8, "mult8/I");
 tbdt->Branch("mult9", &mult9, "mult9/I");
 tbdt->Branch("mult", &mult, "mult/I");
 tbdt->Branch("event", &event, "event/I");
+tbdt->Branch("PulseIntensity", &PulseIntensity, "PulseIntensity/F");
+tbdt->Branch("PSpulse", &PSpulse, "PSpulse/I");
 
 // TOF
 tbdt->Branch("tofA0", tofA0, "tofA0[mult0]/D");
@@ -388,18 +226,6 @@ tbdt->Branch("tofA6", tofA6, "tofA6[mult6]/D");
 tbdt->Branch("tofA7", tofA7, "tofA7[mult7]/D");
 tbdt->Branch("tofA8", tofA8, "tofA8[mult8]/D");
 tbdt->Branch("tofA9", tofA9, "tofA9[mult9]/D");
-
-// detector positions
-tbdt->Branch("x0", x0, "x0[mult0]/D"); tbdt->Branch("y0", y0v, "y0[mult0]/D");
-tbdt->Branch("x1", x1, "x1[mult1]/D"); tbdt->Branch("y1", y1v, "y1[mult1]/D");
-tbdt->Branch("x2", x2, "x2[mult2]/D"); tbdt->Branch("y2", y2, "y2[mult2]/D");
-tbdt->Branch("x3", x3, "x3[mult3]/D"); tbdt->Branch("y3", y3, "y3[mult3]/D");
-tbdt->Branch("x4", x4, "x4[mult4]/D"); tbdt->Branch("y4", y4, "y4[mult4]/D");
-tbdt->Branch("x5", x5, "x5[mult5]/D"); tbdt->Branch("y5", y5, "y5[mult5]/D");
-tbdt->Branch("x6", x6, "x6[mult6]/D"); tbdt->Branch("y6", y6, "y6[mult6]/D");
-tbdt->Branch("x7", x7, "x7[mult7]/D"); tbdt->Branch("y7", y7, "y7[mult7]/D");
-tbdt->Branch("x8", x8, "x8[mult8]/D"); tbdt->Branch("y8", y8, "y8[mult8]/D");
-tbdt->Branch("x9", x9, "x9[mult9]/D"); tbdt->Branch("y9", y9, "y9[mult9]/D");
 
 // Amplitudes
 tbdt->Branch("ampA0", ampA0, "ampA0[mult0]/F");
@@ -503,15 +329,15 @@ using HitKey = std::tuple<
     double, double,       // sumX_0, sumY_0
     double, double,       // diffX_0, diffY_0
     float, float,       // ratioX_0, ratioY_0
-    float, float,       // sumX_amp_0, sumY_amp_0
-    double, double        // x_0, y_0
+    float, float     // sumX_amp_0, sumY_amp_0
 >;
 
-std::set<HitKey> usedHits;   // set to store unique hits. why are we using set? because it automatically returns true if the element is already present
+std::set<HitKey> usedHits;   // set to store unique hits.
+//why are we using set? because it automatically returns true if the element is already present
 
 
 
-for (Long64_t ev = 0; ev < 50000000; ++ev) {
+for (Long64_t ev = 0; ev < nentries; ++ev) {
     if (ev%1000000 == 0){
         std::cout << "ratio event_good: " << 100.0 * events_good / (ev + 1) << std::endl;
         std::cout << "% of events= " << 100.0*ev/(nentries) << std::endl;
@@ -548,23 +374,21 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
                     float ampC2_val = ampC2[idx][j2];
                     float ampC3_val = ampC3[idx][j3];
                     float ampC4_val = ampC4[idx][j4];
-                    double sumX = tofC2[idx][j2] + tofC1[idx][j1] - 2 * tofA[idx][i];
-                    double diffX = tofC2[idx][j2] - tofC1[idx][j1];
-                    double ratioX = ampC2[idx][j2] / ampC1[idx][j1];
-                    double ratio_amp_X = (ampC2[idx][j2] + ampC1[idx][j1]) / ampA[idx][i];
+                    double sumX = tofC4[idx][j4] + tofC3[idx][j3] - 2 * tofA[idx][i];
+                    double diffX = tofC3[idx][j3] - tofC4[idx][j4];
+                    double ratioX = ampC4[idx][j4] / ampC3[idx][j3];
+                    double ratio_amp_X = (ampC4[idx][j4] + ampC3[idx][j3]) / ampA[idx][i];
 
-                    double sumY = tofC4[idx][j4] + tofC3[idx][j3] - 2 * tofA[idx][i];
-                    double diffY = tofC4[idx][j4] - tofC3[idx][j3];
-                    double ratioY = ampC4[idx][j4] / ampC3[idx][j3];
-                    double ratio_amp_Y = (ampC4[idx][j4] + ampC3[idx][j3]) / ampA[idx][i];
-                    double x_0 = vX[idx] * diffX / 2.0;
-                    double y_0 = vY[idx] * diffY / 2.0;
+                    double sumY = tofC2[idx][j2] + tofC1[idx][j1] - 2 * tofA[idx][i];
+                    double diffY = tofC1[idx][j1] - tofC2[idx][j2];
+                    double ratioY = ampC2[idx][j2] / ampC1[idx][j1];
+                    double ratio_amp_Y = (ampC2[idx][j2] + ampC1[idx][j1]) / ampA[idx][i];
 
                     // apply cuts
-                   if (fabs(sumY - meanSumY[idx]) > 2 * meanWidthY[idx]
-                    || fabs(diffY) > (L_mm / vY[idx]) || ratioY > 2.0 || ratioY < 0.5
-                    || ratio_amp_Y < 0.2 || ratio_amp_Y > 1.8 || fabs(sumX - meanSumX[idx]) > 2 * meanWidthX[idx] 
-                    || fabs(diffX) > (L_mm / vX[idx])  || ratioX > 2.0 || ratioX < 0.5  || ratio_amp_X < 0.2 || ratio_amp_X > 1.8) {
+                   if (fabs(sumY - 100) > 10
+                    || fabs(diffY) > 120 || ratioY > 2.0 || ratioY < 0.5
+                    || ratio_amp_Y < 0.2 || ratio_amp_Y > 1.8 || fabs(sumX - 100) > 10
+                    || fabs(diffX) > 120  || ratioX > 2.0 || ratioX < 0.5  || ratio_amp_X < 0.2 || ratio_amp_X > 1.8) {
                                 continue;
                     }
                     // if passed all cuts, create the hit
@@ -589,13 +413,10 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
                     h.ratioX_0 = ratioX;
                     h.ratioY_0 = ratioY;
 
-                    h.x_0 = x_0;
-                    h.y_0 = y_0;
-
                     h.sumX_amp_0 = ratio_amp_X;;
                     h.sumY_amp_0 = ratio_amp_Y;
                     HitKey key = std::make_tuple(h.det,h.tof_A0, h.amp_A0, h.sumX_0, h.sumY_0,
-                    h.diffX_0, h.diffY_0, h.ratioX_0, h.ratioY_0,h.sumX_amp_0, h.sumY_amp_0, h.x_0, h.y_0);
+                    h.diffX_0, h.diffY_0, h.ratioX_0, h.ratioY_0,h.sumX_amp_0, h.sumY_amp_0);
                             if (usedHits.count(key) != 0) {
                                     continue;   // already exists the hit then skip
                     } 
@@ -621,8 +442,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ratioY0[mult0] = hit.ratioY_0;
         sumX0_ampA0[mult0] = hit.sumX_amp_0;
         sumY0_ampA0[mult0] = hit.sumY_amp_0;
-        x0[mult0] = hit.x_0;
-        y0v[mult0] = hit.y_0;
         ampC01[mult0] = hit.ampC1_A0;
         ampC02[mult0] = hit.ampC2_A0;
         ampC03[mult0] = hit.ampC3_A0;
@@ -633,8 +452,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
     case 1:
         tofA1[mult1] = hit.tof_A0;
         ampA1[mult1] = hit.amp_A0;
-        sumX1[mult1] = hit.sumX_0;
-        sumY1[mult1] = hit.sumY_0;
         diffX1[mult1] = hit.diffX_0;
         diffY1[mult1] = hit.diffY_0;
         ratioX1[mult1] = hit.ratioX_0;
@@ -645,8 +462,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC12[mult1] = hit.ampC2_A0;
         ampC13[mult1] = hit.ampC3_A0;
         ampC14[mult1] = hit.ampC4_A0;
-        x1[mult1] = hit.x_0;
-        y1v[mult1] = hit.y_0;
         mult1++;
         break;
 
@@ -665,8 +480,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC22[mult2] = hit.ampC2_A0;
         ampC23[mult2] = hit.ampC3_A0;
         ampC24[mult2] = hit.ampC4_A0;
-        x2[mult2] = hit.x_0;
-        y2[mult2] = hit.y_0;
         mult2++;
         break;
 
@@ -685,8 +498,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC32[mult3] = hit.ampC2_A0;
         ampC33[mult3] = hit.ampC3_A0;
         ampC34[mult3] = hit.ampC4_A0;
-        x3[mult3] = hit.x_0;
-        y3[mult3] = hit.y_0;
         mult3++;
         break;
 
@@ -705,8 +516,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC42[mult4] = hit.ampC2_A0;
         ampC43[mult4] = hit.ampC3_A0;
         ampC44[mult4] = hit.ampC4_A0;
-        x4[mult4] = hit.x_0;
-        y4[mult4] = hit.y_0;
         mult4++;
         break;
 
@@ -724,9 +533,7 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC51[mult5] = hit.ampC1_A0;
         ampC52[mult5] = hit.ampC2_A0;
         ampC53[mult5] = hit.ampC3_A0;
-        ampC54[mult5] = hit.ampC4_A0;
-        x5[mult5] = hit.x_0;
-        y5[mult5] = hit.y_0;    
+        ampC54[mult5] = hit.ampC4_A0;  
         mult5++;
         break;
 
@@ -745,8 +552,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC62[mult6] = hit.ampC2_A0;
         ampC63[mult6] = hit.ampC3_A0;
         ampC64[mult6] = hit.ampC4_A0;
-        x6[mult6] = hit.x_0;
-        y6[mult6] = hit.y_0;
         mult6++;
         break;
 
@@ -765,8 +570,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC72[mult7] = hit.ampC2_A0;
         ampC73[mult7] = hit.ampC3_A0;
         ampC74[mult7] = hit.ampC4_A0;
-        x7[mult7] = hit.x_0;
-        y7[mult7] = hit.y_0;
         mult7++;
         break;
 
@@ -785,8 +588,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC82[mult8] = hit.ampC2_A0;
         ampC83[mult8] = hit.ampC3_A0;
         ampC84[mult8] = hit.ampC4_A0;
-        x8[mult8] = hit.x_0;
-        y8[mult8] = hit.y_0;
         mult8++;
         break;
 
@@ -805,8 +606,6 @@ for (Long64_t ev = 0; ev < 50000000; ++ev) {
         ampC92[mult9] = hit.ampC2_A0;
         ampC93[mult9] = hit.ampC3_A0;
         ampC94[mult9] = hit.ampC4_A0;
-        x9[mult9] = hit.x_0;
-        y9[mult9] = hit.y_0;
         mult9++;
         break;
 }
